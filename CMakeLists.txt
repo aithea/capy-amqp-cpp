@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.12)
 # Project
 #
 set(PROJECT_LIB capy-amqp-cpp)
-project(${PROJECT_LIB} VERSION 1.0.0)
+project(${PROJECT_LIB} VERSION 0.1.0)
 
 #
 # Global setttings
@@ -12,6 +12,7 @@ project(${PROJECT_LIB} VERSION 1.0.0)
 set(VERSION_FILE "version.txt")
 set(CMAKE_CXX_STANDARD 17)
 # googletes, etc
+set (EXTERNAL_LOCATION ${CMAKE_CURRENT_SOURCE_DIR})
 set (EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
 #
@@ -33,7 +34,7 @@ if(CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif(CCACHE_FOUND)
 
-message(STATUS ${CMAKE_CURRENT_SOURCE_DIR} )
+message(STATUS "EXTERNAL_LOCATION: " ${EXTERNAL_LOCATION} )
 
 #
 # Compiler settings

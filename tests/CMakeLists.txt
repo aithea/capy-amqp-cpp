@@ -10,6 +10,8 @@ include_directories(
         ./
         ../include
         ${EXTERNAL_INSTALL_LOCATION}/include
+        ../external/nlohmann/include
+
 )
 
 add_subdirectory(initial)
