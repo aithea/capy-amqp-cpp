@@ -2,13 +2,12 @@
 // Created by denn nevera on 2019-05-31.
 //
 
-#ifndef CAPY_AMQP_CPP_CAPY_AMQP_H
-#define CAPY_AMQP_CPP_CAPY_AMQP_H
+#pragma once
 
+namespace capy::amqp {
 
-class capy_amqp {
+    class Connection {
 
-};
+    };
 
-
-#endif //CAPY_AMQP_CPP_CAPY_AMQP_H
+}
