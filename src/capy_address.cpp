@@ -3,65 +3,77 @@
 //
 
 #include "capy_address.hpp"
-//#include "utils.hpp"
 
 #include <string>
 #include <iostream>
 #include <cctype>
 #include <memory>
+#include <assert.h>
 #include "amqpcpp.h"
 
 namespace capy::amqp {
 
     using namespace std;
 
-    class AddressImpl: public Address {
+    const std::string Address::default_host = "localhost";
+    const uint16_t Address::default_port = 5672;
+
+    class AddressImpl {
+
     public:
-        AddressImpl(const std::string& address):Address() {
+
+        AddressImpl(const std::string& address) {
             amqp_address_ = shared_ptr<AMQP::Address>(new AMQP::Address(address));
         }
 
-        const protocol get_protocol() const {
-          return amqp;
-        }
-
-        const std::string &get_host() const {
-          return amqp_address_->hostname();
-        }
-
-
-        const std::uint16_t get_port() const {
-          return amqp_address_->port();
-        }
-
-        Address& operator=(const Address& address) {
-          AddressImpl *addr = (AddressImpl*)&address;
-          amqp_address_ = addr->amqp_address_;
-        }
-
-    protected:
       shared_ptr<AMQP::Address> amqp_address_;
     };
 
+    Address::Address():imp_(nullptr){
+      assert("Address::Address is protected. Use Address(\"amqp://login@host:port/vhost\") constructor");
+    }
+
+    Address::~Address() {}
+
+    Address& Address::operator=(const capy::amqp::Address &address) {
+      this->imp_ = address.imp_;
+      return *this;
+    }
+
+    Address::Address(const capy::amqp::Address &address):imp_(address.imp_) {}
+
+    Address::Address(const std::shared_ptr<capy::amqp::AddressImpl> &impl):imp_(impl) {}
+
+    Address::Address(const std::string &address):imp_(new AddressImpl(address)) {}
 
     std::optional<Address> Address::Parse(const std::string &address, const capy::amqp::ErrorHandler &error_handler) {
       try {
-        return make_optional(AddressImpl(address));
+        return  make_optional(Address(address));
       }
       catch (const std::exception &exception) {
         error_handler(std::error_code(
-                address_error ::PARSE,
+                AddressError ::PARSE,
                 error_category(amqp::error_string(exception.what()))));
       }
       catch  (...) {
         error_handler(std::error_code(
-                address_error ::UNKNOWN_ERROR,
+                AddressError ::UNKNOWN_ERROR,
                 error_category(amqp::error_string("Could not connect to server"))));
       }
 
-      return std::nullopt;
+      return nullopt;
     };
 
-    Address::Address(const capy::amqp::Address &) {}
-    Address& Address::operator=(const capy::amqp::Address &) {}
+    const std::string& Address::get_host() const {
+      return imp_->amqp_address_->hostname();
+    }
+
+    const uint16_t Address::get_port() {
+      return imp_->amqp_address_->port();
+    }
+
+    const Address::protocol Address::get_protocol() const {
+      return amqp;
+    }
+
 }

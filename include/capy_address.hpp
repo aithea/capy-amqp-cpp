@@ -12,12 +12,14 @@
 
 namespace capy::amqp {
 
-    enum address_error {
+    enum AddressError {
         PARSE = 3001,
         EMPTY = 3002,
         NOT_SUPPORTED = 10000,
         UNKNOWN_ERROR = 10001
     };
+
+    class AddressImpl;
 
     /**
      * Address class
@@ -34,11 +36,14 @@ namespace capy::amqp {
             unknown
         };
 
+        static const std::string default_host;
+        static const uint16_t default_port;
+
     public:
 
         /**
          * Parse address string
-         * @param address - url string
+         * @param address - address string in the follow format: amqp(s)://[login@]host[:port][/vhost]
          * @param error - error handler
          * @return optional Address object
          */
@@ -68,9 +73,17 @@ namespace capy::amqp {
          * Get port
          * @return port number
          */
-        const uint16_t get_port() const;
+        const uint16_t get_port();
+
+        /***
+         * Destroy the object
+         */
+        ~Address();
 
     protected:
-        Address(){};
+        std::shared_ptr<AddressImpl> imp_;
+        Address(const std::shared_ptr<AddressImpl>& impl_);
+        Address(const std::string& address);
+        Address();
     };
 }
