@@ -82,7 +82,7 @@ namespace capy::amqp {
 
     protected:
         std::shared_ptr<AddressImpl> imp_;
-        Address(const std::shared_ptr<AddressImpl>& impl_);
+        Address(const std::shared_ptr<AddressImpl>& impl);
         Address(const std::string& address);
         Address();
     };
