@@ -1,24 +1,29 @@
 set(CMAKE_INSTALL_PREFIX /usr/local/${PROJECT_LIB})
 
 include_directories(
-        ../include
-        ../
-        ../src/
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/nlohmann
+        ${Boost_INCLUDE_DIRS}
 )
 
+
 FILE(GLOB PUBLIC_INCLUDE_FILES
-        ../include/*.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp
         )
 
 FILE(GLOB INCLUDE_FILES
         ${PUBLIC_INCLUDE_FILES}
         )
 
-FILE(GLOB SOURCES
+        FILE(GLOB SOURCES
         ../src/*.cpp
         )
 
-add_library(${PROJECT_LIB}  ${SOURCES})
+add_library(
+        ${PROJECT_LIB}
+        ${SOURCES})
 
 target_link_libraries (
         ${PROJECT_LIB}  PUBLIC
@@ -29,6 +34,8 @@ target_include_directories(
         ${PROJECT_LIB}
         PUBLIC
         ../include
+        ${EXTERNAL_INCLUDE_DIR}
+        ${EXTERNAL_LOCATION}/nlohmann
 )
 
 set(config_install_dir "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")

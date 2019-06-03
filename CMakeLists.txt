@@ -12,13 +12,18 @@ project(${PROJECT_LIB} VERSION 0.1.0)
 set(VERSION_FILE "version.txt")
 set(CMAKE_CXX_STANDARD 17)
 # googletes, etc
-set (EXTERNAL_LOCATION ${CMAKE_CURRENT_SOURCE_DIR})
+set (EXTERNAL_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/external)
 set (EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
+set (EXTERNAL_INCLUDE_DIR ${EXTERNAL_INSTALL_LOCATION}/include)
 
 #
 # Generators
 #
 file (WRITE "${VERSION_FILE}" "${PROJECT_NAME} ${PROJECT_VERSION}")
+
+#
+# Packages
+#
 
 #
 # Programms
@@ -80,6 +85,14 @@ include(ExternalProject)
 #
 ExternalProject_Add(googletest
         GIT_REPOSITORY https://github.com/google/googletest
+        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+        )
+
+#
+# Rabbit AMQP-CPP
+#
+ExternalProject_Add(amqp-cpp
+        GIT_REPOSITORY https://github.com/CopernicaMarketingSoftware/AMQP-CPP
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
         )
 

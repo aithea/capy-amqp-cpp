@@ -2,18 +2,18 @@
 // Created by denn nevera on 2019-05-31.
 //
 
-#include "capy_amqp.h"
+#include "capy_amqp.hpp"
 
 namespace capy::amqp {
 
-    optional<Exchange> Exchange::Bind(const capy::amqp::Url &url, const std::string &exchange_name) {
+    optional<Exchange> Exchange::Bind(const capy::amqp::Address &address, const std::string &exchange_name) {
       if (true){
-        return make_optional(Exchange(url,exchange_name));
+        return make_optional(Exchange(address,exchange_name));
       }
       return nullopt;
     }
 
-    Exchange::Exchange(const capy::amqp::Url &url, const std::string &exchange_name) {
+    Exchange::Exchange(const capy::amqp::Address &address, const std::string &exchange_name) {
 
     }
 

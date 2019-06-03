@@ -10,20 +10,18 @@
 #include <functional>
 #include <system_error>
 
-//#include "json.hpp"
+#include "amqpcpp.h"
+#include "json.hpp"
+#include "capy_address.hpp"
 
 namespace capy::amqp {
 
     using namespace std;
 
-    typedef string json;
-
-    typedef std::function<void(const std::error_code &code)> ErrorHandler;
+    typedef nlohmann::json json;
 
     typedef std::function<void(const json &message)> MessageHandler;
 
-    class Url {
-    };
 
     /**
      *
@@ -38,7 +36,7 @@ namespace capy::amqp {
          * @param exchange_name
          * @return
          */
-        static optional<Exchange> Bind(const Url &url, const string &exchange_name="amq.topic");
+        static optional<Exchange> Bind(const Address &address, const string &exchange_name="amq.topic");
 
         /**
          *
@@ -62,7 +60,7 @@ namespace capy::amqp {
         void listen(const string& queue_name, const MessageHandler& on_data);
 
     protected:
-        Exchange(const Url &url, const string &exchange_name);
+        Exchange(const Address &url, const string &exchange_name);
 
     };
 
