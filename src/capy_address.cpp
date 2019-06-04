@@ -9,24 +9,24 @@
 #include <cctype>
 #include <memory>
 #include <assert.h>
+#include <system_error>
+
 #include "amqpcpp.h"
 
 namespace capy::amqp {
 
     using namespace std;
 
-    const std::string Address::default_host = "localhost";
-    const uint16_t Address::default_port = 5672;
 
     class AddressImpl {
 
     public:
 
         AddressImpl(const std::string& address) {
-            amqp_address_ = shared_ptr<AMQP::Address>(new AMQP::Address(address));
+          amqp_address_ = shared_ptr<AMQP::Address>(new AMQP::Address(address));
         }
 
-      shared_ptr<AMQP::Address> amqp_address_;
+        shared_ptr<AMQP::Address> amqp_address_;
     };
 
     Address::Address():imp_(nullptr){
@@ -46,23 +46,23 @@ namespace capy::amqp {
 
     Address::Address(const std::string &address):imp_(new AddressImpl(address)) {}
 
-    std::optional<Address> Address::Parse(const std::string &address, const capy::amqp::ErrorHandler &error_handler) {
-      try {
-        return  make_optional(Address(address));
-      }
-      catch (const std::exception &exception) {
-        error_handler(std::error_code(
-                AddressError ::PARSE,
-                error_category(amqp::error_string(exception.what()))));
-      }
-      catch  (...) {
-        error_handler(std::error_code(
-                AddressError ::UNKNOWN_ERROR,
-                error_category(amqp::error_string("Could not connect to server"))));
+    capy::Result<Address> Address::From(const std::string &address) {
+
+      if (address.empty()) {
+        return capy::make_unexpected(capy::Error(AddressError::EMPTY));
       }
 
-      return nullopt;
-    };
+      try{
+        return Address(address);
+      }
+      catch (const std::exception &exception) {
+        return capy::make_unexpected(capy::Error(AddressError::PARSE,exception.what()));
+      }
+      catch (...) {
+        return capy::make_unexpected(capy::Error(CommonError::UNKNOWN_ERROR));
+      }
+
+    }
 
     const std::string& Address::get_host() const {
       return imp_->amqp_address_->hostname();
@@ -73,7 +73,30 @@ namespace capy::amqp {
     }
 
     const Address::protocol Address::get_protocol() const {
-      return amqp;
+      return  Address::protocol::amqp;
     }
 
+    std::string AddressErrorCategory::message(int ev) const {
+      switch (ev) {
+        case static_cast<int>(AddressError::PARSE):
+          return "Parse error";
+        case static_cast<int>(AddressError::EMPTY):
+          return "Empty input";
+        default:
+          return ErrorCategory::message(ev);
+      }
+    }
+
+    const std::error_category& address_error_category()
+    {
+      static AddressErrorCategory instance;
+      return instance;
+    }
+
+    std::error_condition make_error_condition(capy::amqp::AddressError e)
+    {
+      return std::error_condition(
+              static_cast<int>(e),
+              capy::amqp::address_error_category());
+    }
 }

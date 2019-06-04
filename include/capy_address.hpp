@@ -8,16 +8,34 @@
 #include <string>
 #include <functional>
 
+
 #include "capy_common.hpp"
 
 namespace capy::amqp {
 
-    enum AddressError {
-        PARSE = 3001,
-        EMPTY = 3002,
-        NOT_SUPPORTED = 10000,
-        UNKNOWN_ERROR = 10001
+    /***
+     * AMQP Address errors
+     */
+    enum class AddressError : PUBLIC_ENUM(CommonError) {
+        /***
+         * Parsing input address sgtring error
+         */
+        PARSE = EXTEND_ENUM(CommonError,LAST),
+        /***
+         * Input address string is empty
+         */
+        EMPTY,
+        LAST
     };
+
+    class AddressErrorCategory: public ErrorCategory
+    {
+    public:
+        virtual std::string message(int ev) const override ;
+    };
+
+    const std::error_category& address_error_category();
+    std::error_condition make_error_condition(capy::amqp::AddressError e);
 
     class AddressImpl;
 
@@ -31,30 +49,29 @@ namespace capy::amqp {
         /**
          * Address protocol is supported by the current version
          */
-        enum protocol{
+        enum protocol:int {
             amqp = 0,
             unknown
         };
 
-        static const std::string default_host;
-        static const uint16_t default_port;
-
     public:
 
-        /**
-         * Parse address string
-         * @param address - address string in the follow format: amqp(s)://[login@]host[:port][/vhost]
-         * @param error - error handler
-         * @return optional Address object
+        /***
+         * Create new Address object from address string
+         * @param address string
+         * @return expected result or capy:Error
          */
-        static std::optional<Address> Parse(
-                const std::string &address,
-                const ErrorHandler &error = default_error_handler);
+        static capy::Result<Address> From(const std::string &address);
 
         /**
          * Copy Address object
          */
         Address(const Address &);
+
+        /***
+         * Copy operation
+         * @return new Address object
+         */
         Address& operator=(const Address&);
 
         /**
@@ -86,4 +103,12 @@ namespace capy::amqp {
         Address(const std::string& address);
         Address();
     };
+
+}
+
+namespace std {
+
+    template <>
+    struct is_error_condition_enum<capy::amqp::AddressError>
+            : public true_type {};
 }
