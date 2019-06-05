@@ -2,6 +2,7 @@
 set (API_TEST_LIB api_test)
 
 include_directories(
+        ${OPENSSL_INCLUDE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/
         ${CMAKE_CURRENT_SOURCE_DIR}/src/
@@ -9,6 +10,8 @@ include_directories(
 )
 
 message(STATUS "EXTERNAL_LOCATION: " ${EXTERNAL_LOCATION} )
+message(STATUS "OPENSSL: " ${OPENSSL_INCLUDE_DIR} )
+message(STATUS "Using OpenSSL ${OPENSSL_VERSION}")
 
 link_directories(
         ${EXTERNAL_INSTALL_LOCATION}/lib
@@ -16,4 +19,5 @@ link_directories(
 
 add_subdirectory(initial)
 add_subdirectory(address)
+add_subdirectory(exchange)
 enable_testing ()

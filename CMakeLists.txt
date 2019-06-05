@@ -24,12 +24,17 @@ file (WRITE "${VERSION_FILE}" "${PROJECT_NAME} ${PROJECT_VERSION}")
 #
 # Packages
 #
+find_package(openssl REQUIRED)
 
 #
 # Programms
 #
 find_program(CCACHE_FOUND ccache)
 find_program(MAKE_EXE NAMES gmake nmake make)
+
+message(STATUS "Using OpenSSL ${OPENSSL_VERSION}")
+message(STATUS "Using OpenSSL DIR ${OPENSSL_ROOT_DIR}")
+
 
 #
 # CCache settings
@@ -39,7 +44,6 @@ if(CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif(CCACHE_FOUND)
 
-message(STATUS "EXTERNAL_LOCATION: " ${EXTERNAL_LOCATION} )
 
 #
 # Compiler settings
@@ -90,10 +94,25 @@ ExternalProject_Add(googletest
 
 #
 # Rabbit AMQP-CPP
+#-DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DAMQP-CPP_LINUX_TCP=ON
+#ExternalProject_Add(amqp-cpp
+#        GIT_REPOSITORY https://github.com/CopernicaMarketingSoftware/AMQP-CPP
+#        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+#        )
+
+
 #
-ExternalProject_Add(amqp-cpp
-        GIT_REPOSITORY https://github.com/CopernicaMarketingSoftware/AMQP-CPP
+# Rabbit rappitmq-c
+#
+ExternalProject_Add(rabbitmq-c
+        GIT_REPOSITORY https://github.com/alanxz/rabbitmq-c
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+        -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
+        -DBUILD_EXAMPLES=OFF
+        -DBUILD_SHARED_LIBS=OFF
+        -DBUILD_STATIC_LIBS=ON
+        -DBUILD_TESTS=OFF
+        -DBUILD_TOOLS_DOCS=OFF
         )
 
 #

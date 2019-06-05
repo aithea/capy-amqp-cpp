@@ -18,7 +18,7 @@ namespace capy::amqp {
      */
     enum class AddressError : PUBLIC_ENUM(CommonError) {
         /***
-         * Parsing input address sgtring error
+         * Parsing input address string error
          */
         PARSE = EXTEND_ENUM(CommonError,LAST),
         /***
@@ -39,6 +39,12 @@ namespace capy::amqp {
 
     class AddressImpl;
 
+    class Login {
+    public:
+        virtual const std::string& get_username() const = 0;
+        virtual const std::string& get_password() const = 0;
+    };
+
     /**
      * Address class
      */
@@ -49,8 +55,9 @@ namespace capy::amqp {
         /**
          * Address protocol is supported by the current version
          */
-        enum protocol:int {
-            amqp = 0,
+        enum class Protocol:int {
+            amqp  = 0,
+            amqps = 1,
             unknown
         };
 
@@ -78,19 +85,27 @@ namespace capy::amqp {
          * Get url protocol
          * @return - url protocol
          */
-        const protocol get_protocol() const;
+        const Protocol get_protocol() const;
 
         /**
          * Get host
          * @return - host string
          */
-        const std::string &get_host() const;
+        const std::string& get_hostname() const;
 
         /**
          * Get port
          * @return port number
          */
-        const uint16_t get_port();
+        const uint16_t get_port() const;
+
+        /**
+         * Get virtual host
+         * @return port number
+         */
+        const std::string& get_vhost() const;
+
+        const Login& get_login() const;
 
         /***
          * Destroy the object
@@ -100,7 +115,6 @@ namespace capy::amqp {
     protected:
         std::shared_ptr<AddressImpl> imp_;
         Address(const std::shared_ptr<AddressImpl>& impl);
-        Address(const std::string& address);
         Address();
     };
 
