@@ -22,8 +22,7 @@ namespace capy::amqp {
 
     typedef nlohmann::json json;
 
-    typedef std::function<void(const json &message)> MessageHandler;
-
+    typedef std::function<void(const Result<json> &message)> MessageHandler;
 
     /***
      * AMQP Exchange errors
@@ -32,8 +31,10 @@ namespace capy::amqp {
         /***
          * Connection error
          */
-        CONNECTION_ERROR = EXTEND_ENUM(CommonError, LAST),
-        LOGIN_ERROR,
+        CONNECTION = EXTEND_ENUM(CommonError, LAST),
+        LOGIN,
+        CHANNEL,
+        PUBLISH,
 
         LAST
     };
@@ -62,28 +63,28 @@ namespace capy::amqp {
          * @param exchange_name
          * @return
          */
-        static Result <Exchange> Bind(const Address &address, const string &exchange_name = "amq.topic");
+        static Result <Exchange> Bind(const Address& address, const string& exchange_name = "amq.topic");
 
         /**
          *
          * @param message
          * @param keys
          */
-        void fetch(const json &message, const vector<string> &keys);
+        void fetch(const json& message, const vector<string>& keys, const MessageHandler& on_data);
 
         /***
          *
          * @param message
          * @param keys
          */
-        void publish(const json &message, const string &queue_name);
+        Error publish(const json& message, const string& queue_name);
 
         /**
          *
          * @param queue_name
          * @param on_data
          */
-        void listen(const string &queue_name, const MessageHandler &on_data);
+        void listen(const string& queue_name, const MessageHandler& on_data);
 
 
     protected:

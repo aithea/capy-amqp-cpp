@@ -24,10 +24,15 @@ namespace capy {
         Error(const std::error_condition code, const std::optional<std::string>& message = std::nullopt);
         const int value() const;
         const std::string message() const;
+
+        operator bool() const;
+
     private:
         std::error_code code_;
         std::optional<std::string>  exception_message_;
     };
+
+    //extern bool operator bool(const Error &);
 
     /***
      * Synchronous expected result type
@@ -53,13 +58,18 @@ namespace capy::amqp {
      */
     enum class CommonError: int {
         /***
+         * Skip the error
+         */
+        OK = 0,
+
+        /***
          * not supported error
          */
         NOT_SUPPORTED = 300,
         /***
          * unknown error
          */
-        UNKNOWN_ERROR = 3001,
+        UNKNOWN = 3001,
         /**
          * the last error code
          */

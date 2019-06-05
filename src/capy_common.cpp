@@ -23,6 +23,10 @@ namespace capy {
       return code_.message();
     }
 
+    Error::operator bool() const {
+      return (code_.value() != static_cast<int>(capy::amqp::CommonError ::OK));
+    }
+
     const std::string error_string(const char* format, ...)
     {
       char buffer[1024] = {};
@@ -52,9 +56,14 @@ namespace capy::amqp {
 
     std::string ErrorCategory::message(int ev) const {
       switch (ev) {
+
+        case static_cast<int>(CommonError::OK):
+          return "OK";
+
         case static_cast<int>(CommonError::NOT_SUPPORTED):
           return "Not supported format";
-        default:
+
+          default:
           return "Unknown error";
       }
     }

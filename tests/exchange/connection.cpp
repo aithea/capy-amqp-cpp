@@ -33,5 +33,8 @@ TEST(Exchange, ConnectionTest) {
                                 "payload": { "ids": [] }
                               })"_json;
 
-  exchange.value().publish(action,"documents.find");
+  if (auto error =  exchange.value().publish(action,"documents.find.exit")) {
+    std::cerr << "amqp exchange publish error: " << error.value() << " / " << error.message()
+              << std::endl;
+  }
 }

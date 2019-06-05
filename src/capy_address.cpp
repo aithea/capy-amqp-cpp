@@ -176,7 +176,7 @@ namespace capy::amqp {
         return capy::make_unexpected(capy::Error(AddressError::PARSE,exception.what()));
       }
       catch (...) {
-        return capy::make_unexpected(capy::Error(CommonError::UNKNOWN_ERROR));
+        return capy::make_unexpected(capy::Error(CommonError::UNKNOWN));
       }
 
     }
