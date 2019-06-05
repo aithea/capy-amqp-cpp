@@ -4,40 +4,88 @@
 
 #pragma once
 
-#import <iostream>
+#include <iostream>
+#include <exception>
+#include <optional>
 
-namespace capy::amqp {
+#include "capy_expected.hpp"
 
-    class error_category: public std::error_category
-    {
-    public:
-        error_category(const std::string &message);
-        error_category():mess_(""){};
-        const char* name() const noexcept override;
-        std::string message(int ev) const override;
+#define PUBLIC_ENUM(OriginalType) std::underlying_type_t<OriginalType>
+#define EXTEND_ENUM(OriginalType,LAST) static_cast<std::underlying_type_t<OriginalType>>(OriginalType::LAST)
 
-    private:
-        std::string mess_;
-    };
+namespace capy {
 
-    typedef std::function<void(const std::error_code &code)> ErrorHandler;
+    using namespace nonstd;
 
-    /**
-     * Default error handler
+    /***
+     * Common Error handler
      */
-
-    static auto default_error_handler = [](const std::error_code &code) {
-        std::cerr << "Capy::Error: code[" << code.value() << "] " << code.message() << std::endl;
+    struct Error {
+        Error(const std::error_condition code, const std::optional<std::string>& message = std::nullopt);
+        const int value() const;
+        const std::string message() const;
+    private:
+        std::error_code code_;
+        std::optional<std::string>  exception_message_;
     };
 
     /***
-     *
-     * Formated error string
-     *
-     * @param format
-     * @param ...
-     * @return
+     * Synchronous expected result type
      */
-    const std::string error_string(const char* format, ...);
+    template <typename T>
+    using Result = expected<T,Error>;
 
+    /***
+    *
+    * Formated error string
+    *
+    * @param format
+    * @param ...
+    * @return
+    */
+    const std::string error_string(const char* format, ...);
+}
+
+namespace capy::amqp {
+
+    /***
+     * Common error codes
+     */
+    enum class CommonError: int {
+        /***
+         * not supported error
+         */
+        NOT_SUPPORTED = 300,
+        /***
+         * unknown error
+         */
+        UNKNOWN_ERROR = 3001,
+        /**
+         * the last error code
+         */
+        LAST
+    };
+
+    /***
+     * Common Error category
+     */
+    class ErrorCategory: public std::error_category
+    {
+    public:
+        virtual const char* name() const noexcept override ;
+        virtual std::string message(int ev) const override ;
+        virtual bool equivalent(const std::error_code& code, int condition) const noexcept override ;
+
+    };
+
+    const std::error_category& error_category();
+    std::error_condition make_error_condition(capy::amqp::CommonError e);
+
+}
+
+namespace std {
+
+    template <>
+    struct is_error_condition_enum<capy::amqp::CommonError>
+            : public true_type {};
 }

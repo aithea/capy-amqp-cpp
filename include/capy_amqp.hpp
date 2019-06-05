@@ -12,6 +12,7 @@
 
 #include "amqpcpp.h"
 #include "json.hpp"
+#include "capy_common.hpp"
 #include "capy_address.hpp"
 
 namespace capy::amqp {

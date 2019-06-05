@@ -7,19 +7,23 @@
 
 namespace capy {
 
-    using namespace std;
-
-    amqp::error_category::error_category(const std::string &message):mess_(message) {}
-
-    const char *amqp::error_category::name() const noexcept {
-      return "capy amqp error";
+    Error::Error(const std::error_condition code, const std::optional<std::string> &message):
+    code_(code.value(),code.category()), exception_message_(message)
+    {
     }
 
-    std::string amqp::error_category::message(int ev) const {
-          return mess_.empty() ? std::generic_category().message(ev) : mess_;
+   const int Error::value() const {
+     return code_.value();
     }
 
-    const std::string amqp::error_string(const char* format, ...)
+    const std::string Error::message() const {
+      if (exception_message_){
+        return *exception_message_;
+      }
+      return code_.message();
+    }
+
+    const std::string error_string(const char* format, ...)
     {
       char buffer[1024] = {};
       va_list ap = {};
@@ -31,4 +35,40 @@ namespace capy {
       return "Cappy error: " + std::string(buffer);
     }
 
+}
+
+namespace capy::amqp {
+
+    using namespace std;
+
+
+    const char *ErrorCategory::name() const noexcept {
+      return "capy.amqp";
+    }
+
+    bool ErrorCategory::equivalent(const std::error_code &code, int condition) const noexcept {
+      return code.value() == condition;
+    }
+
+    std::string ErrorCategory::message(int ev) const {
+      switch (ev) {
+        case static_cast<int>(CommonError::NOT_SUPPORTED):
+          return "Not supported format";
+        default:
+          return "Unknown error";
+      }
+    }
+
+    const std::error_category& error_category()
+    {
+      static ErrorCategory instance;
+      return instance;
+    }
+
+    std::error_condition make_error_condition(capy::amqp::CommonError e)
+    {
+      return std::error_condition(
+              static_cast<int>(e),
+              capy::amqp::error_category());
+    }
 }

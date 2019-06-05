@@ -7,38 +7,30 @@
 #include <optional>
 #include <memory>
 
-TEST(AddressTest, BadAddress) {
+TEST(AddressTestResult, BaddAddress) {
 
-  /***
-   * Example of user error handler redefenition
-   */
-  std::optional<capy::amqp::Address> bad_address
-          = capy::amqp::Address::Parse("https:://somewhereelse.org:9777/",
-                                       [](const std::error_code &code) {
-                                           EXPECT_TRUE(true)
-                                                         << "Bad Address::Test::Error: code[" << code.value() << "] "
-                                                         << code.message() << std::endl;
-                                       });
+  auto bad_address = capy::amqp::Address::From("https:://result@somewhereelse.org/");
 
+  EXPECT_FALSE(bad_address);
+
+  if (!bad_address) {
+    std::cout << "amqp bad address error: " << bad_address.error().value() << " / " << bad_address.error().message() << std::endl;
+  }
 }
 
-/***
- * Default handler for this file
- */
-static auto error_handler = [](const std::error_code &code) {
-    EXPECT_TRUE(false) << "Address::Test::Error:: code[" << code.value() << "] " << code.message() << std::endl;
-};
+TEST(AddressTest, GooddAdress) {
 
-TEST(AddressTest, GoodAddress) {
+  auto good_address = capy::amqp::Address::From("amqp://guest:guest@somewhereelse.org/vhost");
 
-  /***
-   * Example of usage local error handler defenition
-   */
-  std::optional<capy::amqp::Address> good_address = capy::amqp::Address::Parse("amqp://guest:guest@somewhereelse.org/vhost",
-                                                                               error_handler);
+  EXPECT_TRUE(good_address);
 
-  std::cout << "amqp protocol : " << good_address->get_protocol() << std::endl;
-  std::cout << "amqp host     : " << good_address->get_host() << std::endl;
-  std::cout << "amqp port     : " << good_address->get_port() << std::endl;
-
+  if (!good_address) {
+    std::cout << "amqp bad address error: " << good_address.error().value() << " / " << good_address.error().message()
+              << std::endl;
+  }
+  else {
+    std::cout << "amqp protocol : " << good_address->get_protocol() << std::endl;
+    std::cout << "amqp host     : " << good_address->get_host() << std::endl;
+    std::cout << "amqp port     : " << good_address->get_port() << std::endl;
+  }
 }
