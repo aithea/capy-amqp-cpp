@@ -9,6 +9,7 @@
 #include <optional>
 
 #include "capy_expected.hpp"
+#include "nlohmann/json.hpp"
 
 #define PUBLIC_ENUM(OriginalType) std::underlying_type_t<OriginalType>
 #define EXTEND_ENUM(OriginalType,LAST) static_cast<std::underlying_type_t<OriginalType>>(OriginalType::LAST)
@@ -16,6 +17,8 @@
 namespace capy {
 
     using namespace nonstd;
+
+    typedef nlohmann::json json;
 
     /***
      * Common Error handler
@@ -57,6 +60,7 @@ namespace capy::amqp {
      * Common error codes
      */
     enum class CommonError: int {
+
         /***
          * Skip the error
          */
@@ -66,10 +70,16 @@ namespace capy::amqp {
          * not supported error
          */
         NOT_SUPPORTED = 300,
+
         /***
          * unknown error
          */
-        UNKNOWN = 3001,
+        UNKNOWN,
+
+        NOT_FOUND,
+
+        OUT_OF_RANGE,
+
         /**
          * the last error code
          */

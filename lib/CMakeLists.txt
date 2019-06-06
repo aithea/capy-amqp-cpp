@@ -4,13 +4,15 @@ include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/
         ${CMAKE_CURRENT_SOURCE_DIR}/src/
-        ${CMAKE_CURRENT_SOURCE_DIR}/external/nlohmann
+        ${EXTERNAL_LOCATION}
         ${OPENSSL_INCLUDE_DIR}
 )
 
 
 FILE(GLOB PUBLIC_INCLUDE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp
+        ${EXTERNAL_LOCATION}/nlohmann/*.hpp
+        ${EXTERNAL_LOCATION}/dotenv/*.h
         )
 
 FILE(GLOB INCLUDE_FILES

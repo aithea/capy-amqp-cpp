@@ -94,7 +94,7 @@ namespace capy::amqp {
 
     Exchange::Exchange() : impl_(nullptr) {}
 
-    void Exchange::fetch(const capy::amqp::json& message, const std::vector<std::string>& keys, const MessageHandler& on_data) {
+    void Exchange::fetch(const capy::json& message, const std::vector<std::string>& keys, const MessageHandler& on_data) {
 
     }
 
@@ -102,7 +102,7 @@ namespace capy::amqp {
       on_data(json());
     }
 
-    Error Exchange::publish(const capy::amqp::json& message, const std::string& queue_name) {
+    Error Exchange::publish(const capy::json& message, const std::string& queue_name) {
 
       amqp_bytes_t message_bytes;
       auto data = json::to_msgpack(message);

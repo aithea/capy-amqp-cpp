@@ -6,7 +6,7 @@ include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/
         ${CMAKE_CURRENT_SOURCE_DIR}/src/
-        ${EXTERNAL_LOCATION}/nlohmann
+        ${EXTERNAL_LOCATION}
 )
 
 message(STATUS "EXTERNAL_LOCATION: " ${EXTERNAL_LOCATION} )

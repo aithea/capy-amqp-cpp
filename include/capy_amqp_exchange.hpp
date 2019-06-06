@@ -11,7 +11,6 @@
 #include <system_error>
 #include <memory>
 
-#include "json.hpp"
 #include "capy_common.hpp"
 #include "capy_address.hpp"
 #include "capy_expected.hpp"
@@ -19,8 +18,6 @@
 namespace capy::amqp {
 
     using namespace std;
-
-    typedef nlohmann::json json;
 
     typedef std::function<void(const Result<json> &message)> MessageHandler;
 
