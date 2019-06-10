@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.12)
 # Project
 #
 set(PROJECT_LIB capy_amqp_cpp)
-project(${PROJECT_LIB} VERSION 0.2.2)
+project(${PROJECT_LIB} VERSION 0.2.3)
 
 #
 # Global setttings
@@ -98,7 +98,6 @@ ExternalProject_Add(googletest
 ExternalProject_Add(rabbitmq-c
         GIT_REPOSITORY https://github.com/alanxz/rabbitmq-c
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
-        -DDEBUG=ON
         -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
         -DBUILD_EXAMPLES=OFF
         -DBUILD_SHARED_LIBS=OFF
