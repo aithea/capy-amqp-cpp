@@ -33,7 +33,7 @@ TEST(Exchange, ListenTest) {
             }
             else {
               std::cout << " listen["<< counter << "] received: " << message.value().dump(4) << std::endl;
-              replay.value() = {"reply",true};
+              replay.value() = {"reply", true, counter};
               counter++;
             }
         });
@@ -50,9 +50,9 @@ TEST(Exchange, ListenTest) {
       if (auto broker = create_broker()) {
         std::cout << "producer broker created ... " << std::endl;
 
-        for (int i = 0; i < 3 ; ++i) {
+        for (int i = 0; i < 30 ; ++i) {
 
-          std::this_thread::sleep_for(std::chrono::seconds(1));
+          std::this_thread::sleep_for(std::chrono::microseconds(10));
 
           std::string timestamp = std::to_string(time(0));
 

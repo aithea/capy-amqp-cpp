@@ -48,6 +48,28 @@ namespace capy {
     using Result = expected<T,Error>;
 
     /***
+     * Common singleton interface
+     * @tparam T
+     */
+    template <typename T>
+    class Singleton
+    {
+    public:
+        static T& Instance()
+        {
+          static T instance;
+          return instance;
+        }
+
+    protected:
+        Singleton() {}
+        ~Singleton() {}
+    public:
+        Singleton(Singleton const &) = delete;
+        Singleton& operator=(Singleton const &) = delete;
+    };
+
+    /***
     *
     * Formated error string
     *
@@ -95,8 +117,14 @@ namespace capy::amqp {
          */
         UNKNOWN,
 
+        /***
+         * Resource not found
+         */
         NOT_FOUND,
 
+        /***
+         * Collection range excaption
+         */
         OUT_OF_RANGE,
 
         /**

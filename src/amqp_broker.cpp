@@ -423,7 +423,7 @@ namespace capy::amqp {
             const std::string& queue,
             const std::vector<std::string>& routing_keys,
             const capy::amqp::ListenHandler& on_data) {
-      return impl_->listen(queue,routing_keys,on_data);
+      return impl_->listen(queue, routing_keys, on_data);
     }
 
     //
