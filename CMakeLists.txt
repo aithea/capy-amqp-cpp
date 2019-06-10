@@ -98,7 +98,6 @@ ExternalProject_Add(googletest
 ExternalProject_Add(rabbitmq-c
         GIT_REPOSITORY https://github.com/alanxz/rabbitmq-c
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
-        -DDEBUG=ON
         -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
         -DBUILD_EXAMPLES=OFF
         -DBUILD_SHARED_LIBS=OFF
