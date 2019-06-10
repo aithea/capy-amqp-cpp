@@ -50,6 +50,18 @@ namespace capy::amqp {
         LAST
     };
 
+    class BrokerTaskQueue:public capy::dispatchq::Queue{
+    public:
+        BrokerTaskQueue():Queue(std::max(std::thread::hardware_concurrency(),2u)){};
+    };
+
+    class Task:public Singleton<BrokerTaskQueue>
+    {
+        friend class Singleton<BrokerTaskQueue>;
+    private:
+        Task(){};
+    };
+
     class BrokerImpl;
 
     /**
