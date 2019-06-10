@@ -23,7 +23,7 @@ TEST(Exchange, ListenTest) {
         std::cout << "listener broker created ... " << std::endl;
 
         int counter = 0;
-        broker->listen("capy-test", "something.find", [&](
+        broker->listen("capy-test", {"something.find"}, [&](
 
                 const capy::Result<capy::json>& message,
                 capy::Result<capy::json>& replay){

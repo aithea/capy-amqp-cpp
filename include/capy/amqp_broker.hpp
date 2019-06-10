@@ -17,15 +17,21 @@
 
 namespace capy::amqp {
 
-    using namespace std;
-
+    /***
+     * Fetcher handling messages
+     */
     typedef std::function<void(const Result<json>& message)> FetchHandler;
+
+    /***
+     * Listener handling action messages and replies
+     */
     typedef std::function<void(const Result<json>& message, Result<json>& replay)> ListenHandler;
 
     /***
      * AMQP Broker errors
      */
     enum class BrokerError : PUBLIC_ENUM(CommonError) {
+
         /***
          * Connection error
          */
@@ -56,7 +62,7 @@ namespace capy::amqp {
          * @param exchange_name
          * @return expected Broker object or Error report
          */
-        static Result <Broker> Bind(const Address& address, const string& exchange_name = "amq.topic");
+        static Result <Broker> Bind(const Address& address, const std::string& exchange_name = "amq.topic");
 
         /***
          * Publish message with routing key and exit
@@ -73,14 +79,15 @@ namespace capy::amqp {
          * @param on_data
          * @return
          */
-        Error fetch(const json& message, const string& routing_key, const FetchHandler& on_data);
+        Error fetch(const json& message, const std::string& routing_key, const FetchHandler& on_data);
 
         /**
          *
          * @param queue_name
          * @param on_data
          */
-        void listen(const string& queue, const std::string& routing_key, const ListenHandler& on_data);
+
+        void listen(const std::string& queue, const std::vector<std::string>& routing_key, const ListenHandler& on_data);
 
 
     protected:
