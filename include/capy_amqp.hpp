@@ -9,6 +9,7 @@
 #include "capy_address.hpp"
 #include "capy_amqp_exchange.hpp"
 #include "dotenv/dotenv.hpp"
+#include "capy/capy_dispatchq.hpp"
 
 namespace capy {
     /***

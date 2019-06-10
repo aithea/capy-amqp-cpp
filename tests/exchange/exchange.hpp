@@ -5,7 +5,7 @@
 #pragma once
 
 #include "gtest/gtest.h"
-#include "capy_amqp.h"
+#include "capy_amqp.hpp"
 
 #include <optional>
 #include <cstdlib>

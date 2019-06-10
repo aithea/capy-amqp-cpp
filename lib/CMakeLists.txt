@@ -8,7 +8,6 @@ include_directories(
         ${OPENSSL_INCLUDE_DIR}
 )
 
-
 FILE(GLOB PUBLIC_INCLUDE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp
         ${EXTERNAL_LOCATION}/nlohmann/*.hpp

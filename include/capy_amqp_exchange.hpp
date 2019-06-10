@@ -19,7 +19,8 @@ namespace capy::amqp {
 
     using namespace std;
 
-    typedef std::function<void(const Result<json> &message)> MessageHandler;
+    typedef std::function<void(const Result<json>& message)> FetchHandler;
+    typedef std::function<void(const Result<json>& message, Result<json>& replay)> ListenHandler;
 
     /***
      * AMQP Exchange errors
@@ -32,6 +33,10 @@ namespace capy::amqp {
         LOGIN,
         CHANNEL,
         PUBLISH,
+        QUEUE_DECLARATION,
+        QUEUE_BINDING,
+        QUEUE_CONSUMING,
+        DATA_RESPONSE,
 
         LAST
     };
@@ -41,7 +46,7 @@ namespace capy::amqp {
         virtual std::string message(int ev) const override;
     };
 
-    const std::error_category &excahnge_error_category();
+    const std::error_category &exchange_error_category();
 
     std::error_condition make_error_condition(capy::amqp::ExchangeError e);
 
@@ -58,30 +63,26 @@ namespace capy::amqp {
          *
          * @param url
          * @param exchange_name
-         * @return
+         * @return expected Exchange object or Error report
          */
         static Result <Exchange> Bind(const Address& address, const string& exchange_name = "amq.topic");
 
-        /**
-         *
-         * @param message
-         * @param keys
-         */
-        void fetch(const json& message, const vector<string>& keys, const MessageHandler& on_data);
-
         /***
-         *
-         * @param message
-         * @param keys
+         * Publish message with routing key and exit
+         * @param message object message
+         * @param routing_key routing key is listened by consumers or workers
+         * @return error object if some fails occurred
          */
-        Error publish(const json& message, const string& queue_name);
+        Error publish(const json& message, const std::string& routing_key);
+
+        Error fetch(const json& message, const string& routing_key, const FetchHandler& on_data);
 
         /**
          *
          * @param queue_name
          * @param on_data
          */
-        void listen(const string& queue_name, const MessageHandler& on_data);
+        void listen(const string& queue, const std::string& routing_key, const ListenHandler& on_data);
 
 
     protected:

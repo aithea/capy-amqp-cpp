@@ -24,18 +24,22 @@ namespace capy {
      * Common Error handler
      */
     struct Error {
+
         Error(const std::error_condition code, const std::optional<std::string>& message = std::nullopt);
         const int value() const;
         const std::string message() const;
 
         operator bool() const;
 
+        friend std::ostream& operator<<(std::ostream& os, const Error& error) {
+          os << error.value() << "/" << error.message();
+          return os;
+        }
+
     private:
         std::error_code code_;
         std::optional<std::string>  exception_message_;
     };
-
-    //extern bool operator bool(const Error &);
 
     /***
      * Synchronous expected result type
@@ -52,6 +56,21 @@ namespace capy {
     * @return
     */
     const std::string error_string(const char* format, ...);
+
+    static inline void _throw_abort(const char* file, int line, const char* msg)
+    {
+      std::cerr << "Capy logic error: assert failed:\t" << msg << "\n"
+                << "Capy logic error: source:\t\t" << file << ", line " << line << "\n";
+      abort();
+    }
+
+#ifndef NDEBUG
+#   define throw_abort(Msg) _throw_abort( __FILE__, __LINE__, Msg)
+#else
+#   define M_Assert(Expr, Msg) ;
+#endif
+
+
 }
 
 namespace capy::amqp {
