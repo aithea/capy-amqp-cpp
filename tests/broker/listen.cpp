@@ -23,21 +23,22 @@ TEST(Exchange, ListenTest) {
         std::cout << "listener broker created ... " << std::endl;
 
         int counter = 0;
-        broker->listen("capy-test", {"something.find"}, [&](
+        broker->listen(
+                "capy-test",
+                {"something.find"},
+                [&](const capy::Result<capy::json>& message,
+                    capy::Result<capy::json>& replay)
+                {
 
-                const capy::Result<capy::json>& message,
-                capy::Result<capy::json>& replay){
-
-            if (!message) {
-              std::cerr << " listen error: " << message.error().value() << "/" << message.error().message() << std::endl;
-            }
-            else {
-              std::cout << " listen["<< counter << "] received: " << message.value().dump(4) << std::endl;
-              replay.value() = {"reply", true, counter};
-              counter++;
-            }
-        });
-
+                    if (!message) {
+                      std::cerr << " listen error: " << message.error().value() << "/" << message.error().message() << std::endl;
+                    }
+                    else {
+                      std::cout << " listen["<< counter << "] received: " << message.value().dump(4) << std::endl;
+                      replay.value() = {"reply", true, counter};
+                      counter++;
+                    }
+                });
       };
 
   });
@@ -66,15 +67,15 @@ TEST(Exchange, ListenTest) {
           if (auto error = broker->fetch(action, "something.find", [&](const capy::Result<capy::json> &message){
 
 
-            if (!message){
+              if (!message){
 
-              std::cerr << "amqp broker fetch receiving error: " << message.error().value() << " / " << message.error().message()
-                        << std::endl;
+                std::cerr << "amqp broker fetch receiving error: " << message.error().value() << " / " << message.error().message()
+                          << std::endl;
 
-            }
-            else {
-              std::cout << "fetch["<< i << "] received: " <<  message->dump(4) << std::endl;
-            }
+              }
+              else {
+                std::cout << "fetch["<< i << "] received: " <<  message->dump(4) << std::endl;
+              }
 
 
           })) {

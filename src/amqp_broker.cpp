@@ -9,6 +9,8 @@
 
 #include <assert.h>
 #include <atomic>
+#include <thread>
+#include <future>
 
 namespace capy::amqp {
 
@@ -208,8 +210,10 @@ namespace capy::amqp {
 
             consume_once([&on_data, this, current_id, &props](const capy::json& body, const std::string& reply_to, uint64_t delivery_tag) {
 
-                Result <json> skip;
-                on_data.value()(body,skip);
+              capy::amqp::Task::Instance().async([=]{
+                  Result <json> skip;
+                  on_data.value()(body,skip);
+              });
 
             }, [this, &props]{
                 amqp_queue_delete(producer_conn, channel_id, props.reply_to, 0, 0);
@@ -292,31 +296,33 @@ namespace capy::amqp {
 
                 amqp_basic_ack(producer_conn, channel_id, delivery_tag, 1);
 
-                try {
+                capy::amqp::Task::Instance().async([=]{
 
-                  Result<json> replay;
+                    try {
 
-                  on_data(body, replay);
+                      Result<json> replay;
 
-                  if (!replay) {
-                    return;
-                  }
+                      on_data(body, replay);
 
-                  if (replay->empty()) {
-                    std::cerr << "capy::Broker::error: replay is empty" << std::endl;
-                    return;
-                  }
+                      if (!replay) {
+                        return;
+                      }
 
-                  publish(replay.value(), "", reply_to, std::nullopt);
+                      if (replay->empty()) {
+                        std::cerr << "capy::Broker::error: replay is empty" << std::endl;
+                        return;
+                      }
 
-                }
-                catch (json::exception &exception) {
-                  throw_abort(exception.what());
-                }
-                catch (...) {
-                  throw_abort("Unexpected excaption...");
-                }
+                      publish(replay.value(), "", reply_to, std::nullopt);
 
+                    }
+                    catch (json::exception &exception) {
+                      throw_abort(exception.what());
+                    }
+                    catch (...) {
+                      throw_abort("Unexpected excaption...");
+                    }
+                });
             });
 
           }
