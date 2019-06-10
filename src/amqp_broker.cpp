@@ -12,7 +12,7 @@
 
 namespace capy::amqp {
 
-    bool die_on_amqp_error(amqp_rpc_reply_t x, char const *context, string &return_string);
+    bool die_on_amqp_error(amqp_rpc_reply_t x, char const *context, std::string &return_string);
 
     class BrokerImpl {
 
@@ -31,7 +31,7 @@ namespace capy::amqp {
 
           isExited = true;
 
-          string error_message;
+          std::string error_message;
 
           ///
           /// @todo
@@ -130,8 +130,11 @@ namespace capy::amqp {
                     amqp_queue_declare(
                             producer_conn, channel_id, amqp_empty_bytes, 0, 0, 1, 1, amqp_empty_table);
 
-
             std::string error_message;
+
+            if (!r) {
+              return capy::Error(BrokerError::QUEUE_DECLARATION, "Connection has been lost");
+            }
 
             if (die_on_amqp_error(amqp_get_rpc_reply(producer_conn), "Publisher declaring queue", error_message)) {
               return capy::Error(BrokerError::QUEUE_DECLARATION, error_message);
@@ -219,11 +222,11 @@ namespace capy::amqp {
 
         void listen(
                 const std::string& queue,
-                const std::string& routing_key,
+                const std::vector<std::string>& routing_keys,
                 const capy::amqp::ListenHandler& on_data) {
           try {
 
-            string error_message;
+            std::string error_message;
 
             //
             //
@@ -253,17 +256,20 @@ namespace capy::amqp {
             // bind routing key
             //
 
-            amqp_queue_bind(producer_conn,
-                            channel_id,
-                            amqp_cstring_bytes(queue.c_str()),
-                            amqp_cstring_bytes(exchange_name.c_str()),
-                            amqp_cstring_bytes(routing_key.c_str()), amqp_empty_table);
+            for (auto &routing_key: routing_keys) {
 
-            if (die_on_amqp_error(amqp_get_rpc_reply(producer_conn), "Binding queue", error_message)) {
-              Result<json> replay;
-              return on_data(
-                      capy::make_unexpected(capy::Error(BrokerError::QUEUE_DECLARATION, error_message)),
-                      replay);
+              amqp_queue_bind(producer_conn,
+                              channel_id,
+                              amqp_cstring_bytes(queue.c_str()),
+                              amqp_cstring_bytes(exchange_name.c_str()),
+                              amqp_cstring_bytes(routing_key.c_str()), amqp_empty_table);
+
+              if (die_on_amqp_error(amqp_get_rpc_reply(producer_conn), "Binding queue", error_message)) {
+                Result<json> replay;
+                return on_data(
+                        capy::make_unexpected(capy::Error(BrokerError::QUEUE_DECLARATION, error_message)),
+                        replay);
+              }
             }
 
             //
@@ -359,7 +365,7 @@ namespace capy::amqp {
                                         address.get_login().get_password().c_str());
 
 
-      string error_message;
+      std::string error_message;
 
       if (die_on_amqp_error(ret, "Producer login", error_message)) {
         amqp_connection_close(producer_conn, AMQP_REPLY_SUCCESS);
@@ -375,7 +381,7 @@ namespace capy::amqp {
         return capy::make_unexpected(capy::Error(BrokerError::CHANNEL, error_message));
       }
 
-      auto impl = shared_ptr<BrokerImpl>(new BrokerImpl(channel_id));
+      auto impl = std::shared_ptr<BrokerImpl>(new BrokerImpl(channel_id));
 
       amqp_basic_qos(producer_conn,channel_id,0,1,0);
 
@@ -415,9 +421,9 @@ namespace capy::amqp {
     //
     void Broker::listen(
             const std::string& queue,
-            const std::string& routing_key,
+            const std::vector<std::string>& routing_keys,
             const capy::amqp::ListenHandler& on_data) {
-      return impl_->listen(queue,routing_key,on_data);
+      return impl_->listen(queue, routing_keys, on_data);
     }
 
     //
@@ -451,7 +457,7 @@ namespace capy::amqp {
               capy::amqp::broker_error_category());
     }
 
-    bool die_on_amqp_error(amqp_rpc_reply_t x, char const *context, string &return_string) {
+    bool die_on_amqp_error(amqp_rpc_reply_t x, char const *context, std::string &return_string) {
 
       switch (x.reply_type) {
 

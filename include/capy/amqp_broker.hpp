@@ -10,6 +10,9 @@
 #include <functional>
 #include <system_error>
 #include <memory>
+#include <thread>
+#include <algorithm>
+#include <capy/capy_dispatchq.hpp>
 
 #include "amqp_common.hpp"
 #include "amqp_address.hpp"
@@ -17,15 +20,21 @@
 
 namespace capy::amqp {
 
-    using namespace std;
-
+    /***
+     * Fetcher handling messages
+     */
     typedef std::function<void(const Result<json>& message)> FetchHandler;
+
+    /***
+     * Listener handling action messages and replies
+     */
     typedef std::function<void(const Result<json>& message, Result<json>& replay)> ListenHandler;
 
     /***
      * AMQP Broker errors
      */
     enum class BrokerError : PUBLIC_ENUM(CommonError) {
+
         /***
          * Connection error
          */
@@ -50,13 +59,15 @@ namespace capy::amqp {
 
     public:
 
-        /**
+        /***
          *
-         * @param url
-         * @param exchange_name
+         * Bind broker with amqp cloud and create Broker client object
+         *
+         * @param address AMQP address
+         * @param exchange_name exchange name
          * @return expected Broker object or Error report
          */
-        static Result <Broker> Bind(const Address& address, const string& exchange_name = "amq.topic");
+        static Result <Broker> Bind(const Address& address, const std::string& exchange_name = "amq.topic");
 
         /***
          * Publish message with routing key and exit
@@ -67,20 +78,23 @@ namespace capy::amqp {
         Error publish(const json& message, const std::string& routing_key);
 
         /***
+         *
          * Request message with action and fetch result
-         * @param message request message
-         * @param routing_key queue routing key
-         * @param on_data
-         * @return
+         *
+         * @param message request actions with payload
+         * @param routing_key routing key
+         * @param on_data messaging handling
+         * @return error or ok
          */
-        Error fetch(const json& message, const string& routing_key, const FetchHandler& on_data);
+        Error fetch(const json& message, const std::string& routing_key, const FetchHandler& on_data);
 
         /**
-         *
-         * @param queue_name
-         * @param on_data
+         * Listen queue bound list of certain topic keys
+         * @param queue queue name
+         * @param keys topic keys
+         * @param on_data messaging handling
          */
-        void listen(const string& queue, const std::string& routing_key, const ListenHandler& on_data);
+        void listen(const std::string& queue, const std::vector<std::string>& keys, const ListenHandler& on_data);
 
 
     protected:

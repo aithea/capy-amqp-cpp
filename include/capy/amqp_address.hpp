@@ -28,20 +28,23 @@ namespace capy::amqp {
         LAST
     };
 
-    class AddressErrorCategory: public ErrorCategory
-    {
-    public:
-        virtual std::string message(int ev) const override ;
-    };
-
-    const std::error_category& address_error_category();
-    std::error_condition make_error_condition(capy::amqp::AddressError e);
-
     class AddressImpl;
 
+    /***
+     * AMQP Login
+     */
     class Login {
     public:
+        /***
+         * Get user name
+         * @return username string
+         */
         virtual const std::string& get_username() const = 0;
+
+        /***
+         * Get user password
+         * @return password plain string
+         */
         virtual const std::string& get_password() const = 0;
     };
 
@@ -117,6 +120,15 @@ namespace capy::amqp {
         Address(const std::shared_ptr<AddressImpl>& impl);
         Address();
     };
+
+    class AddressErrorCategory: public ErrorCategory
+    {
+    public:
+        virtual std::string message(int ev) const override ;
+    };
+
+    const std::error_category& address_error_category();
+    std::error_condition make_error_condition(capy::amqp::AddressError e);
 
 }
 
