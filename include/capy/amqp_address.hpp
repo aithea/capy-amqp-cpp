@@ -9,7 +9,7 @@
 #include <functional>
 
 
-#include "capy_common.hpp"
+#include "amqp_common.hpp"
 
 namespace capy::amqp {
 

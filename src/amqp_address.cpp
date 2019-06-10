@@ -2,7 +2,7 @@
 // Created by denn on 2019-02-03.
 //
 
-#include "capy_address.hpp"
+#include "capy/amqp_address.hpp"
 
 #include <string>
 #include <iostream>

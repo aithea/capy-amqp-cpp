@@ -11,9 +11,9 @@
 #include <system_error>
 #include <memory>
 
-#include "capy_common.hpp"
-#include "capy_address.hpp"
-#include "capy_expected.hpp"
+#include "amqp_common.hpp"
+#include "amqp_address.hpp"
+#include "amqp_expected.hpp"
 
 namespace capy::amqp {
 
@@ -23,9 +23,9 @@ namespace capy::amqp {
     typedef std::function<void(const Result<json>& message, Result<json>& replay)> ListenHandler;
 
     /***
-     * AMQP Exchange errors
+     * AMQP Broker errors
      */
-    enum class ExchangeError : PUBLIC_ENUM(CommonError) {
+    enum class BrokerError : PUBLIC_ENUM(CommonError) {
         /***
          * Connection error
          */
@@ -41,21 +41,12 @@ namespace capy::amqp {
         LAST
     };
 
-    class ExchangeErrorCategory : public ErrorCategory {
-    public:
-        virtual std::string message(int ev) const override;
-    };
-
-    const std::error_category &exchange_error_category();
-
-    std::error_condition make_error_condition(capy::amqp::ExchangeError e);
-
-    class ExchangeImpl;
+    class BrokerImpl;
 
     /**
-     *
+     * Common AMQP Broker client rpc client
      */
-    class Exchange {
+    class Broker {
 
     public:
 
@@ -63,9 +54,9 @@ namespace capy::amqp {
          *
          * @param url
          * @param exchange_name
-         * @return expected Exchange object or Error report
+         * @return expected Broker object or Error report
          */
-        static Result <Exchange> Bind(const Address& address, const string& exchange_name = "amq.topic");
+        static Result <Broker> Bind(const Address& address, const string& exchange_name = "amq.topic");
 
         /***
          * Publish message with routing key and exit
@@ -75,6 +66,13 @@ namespace capy::amqp {
          */
         Error publish(const json& message, const std::string& routing_key);
 
+        /***
+         * Request message with action and fetch result
+         * @param message request message
+         * @param routing_key queue routing key
+         * @param on_data
+         * @return
+         */
         Error fetch(const json& message, const string& routing_key, const FetchHandler& on_data);
 
         /**
@@ -86,16 +84,39 @@ namespace capy::amqp {
 
 
     protected:
-        Exchange();
-        std::shared_ptr<ExchangeImpl> impl_;
-        Exchange(const std::shared_ptr<ExchangeImpl>& impl);
+        Broker();
+        Broker(const std::shared_ptr<BrokerImpl>& impl);
+
+    private:
+        std::shared_ptr<BrokerImpl> impl_;
     };
+
+    /***
+     * Broker errors handling
+     */
+    class BrokerErrorCategory : public ErrorCategory {
+    public:
+        virtual std::string message(int ev) const override;
+    };
+
+    /***
+     * Predefined exchange error category
+     * @return error category
+     */
+    const std::error_category &broker_error_category();
+
+    /***
+     * Broker rpc errors logic
+     * @param error broker error state
+     * @return error condition
+     */
+    std::error_condition make_error_condition(capy::amqp::BrokerError error);
 
 }
 
 namespace std {
 
     template <>
-    struct is_error_condition_enum<capy::amqp::ExchangeError>
+    struct is_error_condition_enum<capy::amqp::BrokerError>
             : public true_type {};
 }

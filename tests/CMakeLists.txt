@@ -19,5 +19,5 @@ link_directories(
 
 add_subdirectory(initial)
 add_subdirectory(address)
-add_subdirectory(exchange)
+add_subdirectory(broker)
 enable_testing ()

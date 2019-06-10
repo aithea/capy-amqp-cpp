@@ -2,7 +2,7 @@
 // Created by denn nevera on 2019-06-03.
 //
 
-#include "capy_amqp.hpp"
+#include "capy/amqp.hpp"
 #include "gtest/gtest.h"
 #include <optional>
 #include <memory>
@@ -46,11 +46,5 @@ TEST(AddressTest, GooddAdress) {
     ASSERT_EQ(good_address->get_vhost(),"/vhost");
     ASSERT_EQ(good_address->get_login().get_username(),"admin");
     ASSERT_EQ(good_address->get_login().get_password(),"password");
-
-    std::cout << "amqp Protocol : " << static_cast<int>(good_address->get_protocol()) << std::endl;
-    std::cout << "amqp host     : " << good_address->get_hostname() << std::endl;
-    std::cout << "amqp port     : " << good_address->get_port() << std::endl;
-    std::cout << "amqp vhost    : " << good_address->get_vhost() << std::endl;
-    std::cout << "amqp login    : " << good_address->get_login().get_username() << ":" << good_address->get_login().get_password() << std::endl;
   }
 }

@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include "capy_common.hpp"
-#include "capy_expected.hpp"
-#include "capy_address.hpp"
-#include "capy_amqp_exchange.hpp"
+#include "amqp_common.hpp"
+#include "amqp_expected.hpp"
+#include "amqp_address.hpp"
+#include "amqp_broker.hpp"
 #include "dotenv/dotenv.hpp"
 #include "capy/capy_dispatchq.hpp"
 

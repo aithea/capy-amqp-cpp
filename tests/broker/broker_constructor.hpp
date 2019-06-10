@@ -5,12 +5,12 @@
 #pragma once
 
 #include "gtest/gtest.h"
-#include "capy_amqp.hpp"
+#include "capy/amqp.hpp"
 
 #include <optional>
 #include <cstdlib>
 
-static inline std::optional<capy::amqp::Exchange> create_exchange() {
+static inline std::optional<capy::amqp::Broker> create_broker() {
 
   auto login = capy::get_dotenv("CAPY_AMQP_ADDRESS");
 
@@ -31,15 +31,15 @@ static inline std::optional<capy::amqp::Exchange> create_exchange() {
     return std::nullopt;
   }
 
-  auto exchange = capy::amqp::Exchange::Bind(address.value());
+  auto broker = capy::amqp::Broker::Bind(address.value());
 
-  EXPECT_TRUE(exchange);
+  EXPECT_TRUE(broker);
 
-  if (!exchange) {
-    std::cerr << "amqp exchange error: " << exchange.error().value() << " / " << exchange.error().message()
+  if (!broker) {
+    std::cerr << "amqp broker error: " << broker.error().value() << " / " << broker.error().message()
               << std::endl;
     return std::nullopt;
   }
 
-  return  exchange.value();
+  return  broker.value();
 }

@@ -8,7 +8,7 @@
 #include <exception>
 #include <optional>
 
-#include "capy_expected.hpp"
+#include "amqp_expected.hpp"
 #include "nlohmann/json.hpp"
 
 #define PUBLIC_ENUM(OriginalType) std::underlying_type_t<OriginalType>

@@ -3,7 +3,7 @@
 //
 
 
-#include "exchange.hpp"
+#include "broker_constructor.hpp"
 #include <chrono>
 #include <future>
 #include <iostream>
@@ -18,12 +18,12 @@ TEST(Exchange, ListenTest) {
 
       std::cout << "listener thread" << std::endl;
 
-      if (auto exchange = create_exchange()) {
+      if (auto broker = create_broker()) {
 
-        std::cout << "listener exchange created ... " << std::endl;
+        std::cout << "listener broker created ... " << std::endl;
 
         int counter = 0;
-        exchange->listen("capy-test", "something.find", [&](
+        broker->listen("capy-test", "something.find", [&](
 
                 const capy::Result<capy::json>& message,
                 capy::Result<capy::json>& replay){
@@ -47,8 +47,8 @@ TEST(Exchange, ListenTest) {
 
       std::cout << "producer thread" << std::endl;
 
-      if (auto exchange = create_exchange()) {
-        std::cout << "producer exchange created ... " << std::endl;
+      if (auto broker = create_broker()) {
+        std::cout << "producer broker created ... " << std::endl;
 
         for (int i = 0; i < 3 ; ++i) {
 
@@ -63,12 +63,12 @@ TEST(Exchange, ListenTest) {
 
           std::cout << "fetch[" << i << "] action: " <<  action.dump(4) << std::endl;
 
-          if (auto error = exchange->fetch(action, "something.find", [&](const capy::Result<capy::json> &message){
+          if (auto error = broker->fetch(action, "something.find", [&](const capy::Result<capy::json> &message){
 
 
             if (!message){
 
-              std::cerr << "amqp exchange fetch receiving error: " << message.error().value() << " / " << message.error().message()
+              std::cerr << "amqp broker fetch receiving error: " << message.error().value() << " / " << message.error().message()
                         << std::endl;
 
             }
@@ -79,7 +79,7 @@ TEST(Exchange, ListenTest) {
 
           })) {
 
-            std::cerr << "amqp exchange fetch error: " << error.value() << " / " << error.message()
+            std::cerr << "amqp broker fetch error: " << error.value() << " / " << error.message()
                       << std::endl;
 
           }

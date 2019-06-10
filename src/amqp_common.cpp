@@ -2,7 +2,7 @@
 // Created by denn nevera on 2019-06-03.
 //
 
-#include "capy_common.hpp"
+#include "capy/amqp_common.hpp"
 #include <string>
 
 namespace capy {

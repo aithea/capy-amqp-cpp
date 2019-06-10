@@ -87,19 +87,14 @@ include(ExternalProject)
 #
 # Google Test
 #
-if (NOT IS_DIRECTORY ${EXTERNAL_INSTALL_LOCATION}/googletest-prefix)
 ExternalProject_Add(googletest
         GIT_REPOSITORY https://github.com/google/googletest
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
         )
-endif()
 
 #
 # Rabbit rappitmq-c
 #
-if (IS_DIRECTORY ${EXTERNAL_INSTALL_LOCATION}/rabbitmq-c-prefix)
-    message( STATUS "rabbitmq-c is installed to: " ${EXTERNAL_INSTALL_LOCATION} )
-else()
 ExternalProject_Add(rabbitmq-c
         GIT_REPOSITORY https://github.com/alanxz/rabbitmq-c
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
@@ -111,19 +106,14 @@ ExternalProject_Add(rabbitmq-c
         -DBUILD_TESTS=OFF
         -DBUILD_TOOLS_DOCS=OFF
         )
-endif()
 
 #
 # Google Test
 #
-if (IS_DIRECTORY ${EXTERNAL_INSTALL_LOCATION}/capy-dispatchq-prefix)
-    message(STATUS "capy-dispatchq is installed to: " ${EXTERNAL_INSTALL_LOCATION} )
-else()
-    ExternalProject_Add(capy-dispatchq
-            GIT_REPOSITORY https://github.com/aithea/capy-dispatchq
-            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DBUILD_TESTING=OFF
-            )
-endif ()
+ExternalProject_Add(capy-dispatchq
+        GIT_REPOSITORY https://github.com/aithea/capy-dispatchq
+        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DBUILD_TESTING=OFF
+        )
 
 #
 # Details
