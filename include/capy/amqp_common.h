@@ -8,8 +8,8 @@
 #include <exception>
 #include <optional>
 
-#include "amqp_expected.hpp"
-#include "nlohmann/json.hpp"
+#include "capy/amqp_expected.h"
+#include "nlohmann/json.h"
 
 #define PUBLIC_ENUM(OriginalType) std::underlying_type_t<OriginalType>
 #define EXTEND_ENUM(OriginalType,LAST) static_cast<std::underlying_type_t<OriginalType>>(OriginalType::LAST)

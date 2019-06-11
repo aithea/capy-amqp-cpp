@@ -2,7 +2,7 @@
 // Created by denn nevera on 2019-06-05.
 //
 
-#include "broker_constructor.hpp"
+#include "broker_constructor.h"
 
 TEST(Broker, PublishTest) {
 

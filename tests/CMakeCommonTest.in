@@ -1,5 +1,5 @@
 file(GLOB TESTS_SOURCES ${TESTS_SOURCES}
-        ./*.cpp
+        ./*.cc
         )
 
 add_executable(${TEST} ${TESTS_SOURCES})

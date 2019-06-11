@@ -9,8 +9,8 @@ include_directories(
 )
 
 FILE(GLOB PUBLIC_INCLUDE_FILES
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp
-        ${EXTERNAL_LOCATION}/nlohmann/*.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h
+        ${EXTERNAL_LOCATION}/nlohmann/*.h
         ${EXTERNAL_LOCATION}/dotenv/*.h
         )
 
@@ -19,7 +19,7 @@ FILE(GLOB INCLUDE_FILES
         )
 
         FILE(GLOB SOURCES
-        ../src/*.cpp
+        ../src/*.cc
         )
 
 add_library(

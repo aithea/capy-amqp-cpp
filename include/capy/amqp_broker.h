@@ -12,11 +12,11 @@
 #include <memory>
 #include <thread>
 #include <algorithm>
-#include <capy/capy_dispatchq.hpp>
 
-#include "amqp_common.hpp"
-#include "amqp_address.hpp"
-#include "amqp_expected.hpp"
+#include "capy/dispatchq.h"
+#include "capy/amqp_common.h"
+#include "capy/amqp_address.h"
+#include "capy/amqp_expected.h"
 
 namespace capy::amqp {
 

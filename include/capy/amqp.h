@@ -4,12 +4,13 @@
 
 #pragma once
 
-#include "amqp_common.hpp"
-#include "amqp_expected.hpp"
-#include "amqp_address.hpp"
-#include "amqp_broker.hpp"
-#include "dotenv/dotenv.hpp"
-#include "capy/capy_dispatchq.hpp"
+#include "capy/amqp_common.h"
+#include "capy/amqp_expected.h"
+#include "capy/amqp_address.h"
+#include "capy/amqp_broker.h"
+#include "capy/dispatchq.h"
+
+#include "dotenv/dotenv.h"
 
 namespace capy {
     /***
