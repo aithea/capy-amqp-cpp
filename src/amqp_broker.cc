@@ -2,11 +2,11 @@
 // Created by denn nevera on 2019-05-31.
 //
 
-#include "capy/amqp_broker.hpp"
+#include "capy/amqp_broker.h"
 #include "amqp.h"
 #include "amqp_tcp_socket.h"
-#include "capy/capy_dispatchq.hpp"
 
+#include "capy/dispatchq.h"
 #include <assert.h>
 #include <atomic>
 #include <thread>

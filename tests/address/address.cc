@@ -2,7 +2,7 @@
 // Created by denn nevera on 2019-06-03.
 //
 
-#include "capy/amqp.hpp"
+#include "capy/amqp.h"
 #include "gtest/gtest.h"
 #include <optional>
 #include <memory>
