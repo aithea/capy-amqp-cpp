@@ -112,7 +112,7 @@ ExternalProject_Add(rabbitmq-c
         )
 
 #
-# Google Test
+# Capy threads pool dispatcher
 #
 ExternalProject_Add(capy-dispatchq
         GIT_REPOSITORY https://github.com/aithea/capy-dispatchq
