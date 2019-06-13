@@ -10,7 +10,14 @@ include_directories(
 
 FILE(GLOB PUBLIC_INCLUDE_FILES
         ${CMAKE_SOURCE_DIR}/include/capy/*.h
+        ${EXTERNAL_LOCATION}/dotenv/*.h
+        )
+
+FILE(GLOB PUBLIC_NLOHMANN_INCLUDE_FILES
         ${EXTERNAL_LOCATION}/nlohmann/*.h
+        )
+
+FILE(GLOB PUBLIC_DOTENV_INCLUDE_FILES
         ${EXTERNAL_LOCATION}/dotenv/*.h
         )
 
@@ -62,5 +69,7 @@ configure_package_config_file(
 
 install(TARGETS ${PROJECT_LIB}   DESTINATION lib)
 install(FILES   ${PUBLIC_INCLUDE_FILES} DESTINATION include/capy)
+install(FILES   ${PUBLIC_NLOHMANN_INCLUDE_FILES} DESTINATION include/nlohmann)
+install(FILES   ${PUBLIC_DOTENV_INCLUDE_FILES} DESTINATION include/dotenv)
 install(FILES   ${project_config} ${version_config} DESTINATION lib/cmake/${PROJECT_LIB})
 install(FILES   cmake/${PROJECT_LIB}.cmake DESTINATION lib/cmake/${PROJECT_LIB})
