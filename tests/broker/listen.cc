@@ -46,12 +46,14 @@ TEST(Exchange, ListenTest) {
 
   publisher_q.async([]{
 
+      int max_count = 30;
+
       std::cout << "producer thread" << std::endl;
 
       if (auto broker = create_broker()) {
         std::cout << "producer broker created ... " << std::endl;
 
-        for (int i = 0; i < 30 ; ++i) {
+        for (int i = 0; i < max_count ; ++i) {
 
           std::this_thread::sleep_for(std::chrono::microseconds(10));
 
@@ -83,6 +85,10 @@ TEST(Exchange, ListenTest) {
             std::cerr << "amqp broker fetch error: " << error.value() << " / " << error.message()
                       << std::endl;
 
+          }
+
+          if (max_count - 1 == i) {
+            ::exit(0);
           }
 
         }
