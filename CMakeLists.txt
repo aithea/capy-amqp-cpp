@@ -7,6 +7,11 @@ set(PROJECT_LIB capy_amqp_cpp)
 project(${PROJECT_LIB} VERSION 0.2.4)
 
 #
+# Options
+#
+option(BUILD_TESTING "Enable creation of Eigen tests." OFF)
+
+#
 # Global setttings
 #
 set(VERSION_FILE "version.txt")
@@ -118,8 +123,10 @@ ExternalProject_Add(capy-dispatchq
 # Details
 #
 add_subdirectory(lib)
-add_subdirectory(tests)
-enable_testing ()
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+    enable_testing ()
+endif()
 
 #
 # first we can indicate the documentation build as an option and set it to ON by default
