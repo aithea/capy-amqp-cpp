@@ -54,20 +54,33 @@ namespace capy::amqp {
 
         }
 
-
-        void consume_once(const std::function<void(const capy::json& body,
-                                                   const std::string& reply_to,
-                                                   uint64_t delivery_tag)> on_replay,
-                          const std::function<void()> on_complete) {
+        void consume_once(
+                const std::function<bool(const capy::json& body, const std::string& reply_to, const std::string& routing_key, const std::string& correlation_id, uint64_t delivery_tag)> on_replay,
+                const std::function<void()> on_complete) {
 
           amqp_rpc_reply_t ret;
           amqp_envelope_t envelope;
 
           ret = amqp_consume_message(producer_conn, &envelope, NULL, 0);
 
+          std::string correlation_id;
+
+          bool do_complete = false;
+
           if (AMQP_RESPONSE_NORMAL == ret.reply_type) {
 
+            if ((envelope.message.properties._flags & AMQP_BASIC_CORRELATION_ID_FLAG) /*&& !correlation_id.empty()*/) {
+              correlation_id = std::string(
+                      static_cast<char *>(envelope.message.properties.correlation_id.bytes),
+                      envelope.message.properties.correlation_id.len);
+            }
+
             std::string reply_to_routing_key;
+            std::string routing_key;
+
+            if (envelope.routing_key.bytes != NULL) {
+              routing_key = std::string(static_cast<char*>(envelope.routing_key.bytes), envelope.routing_key.len);
+            }
 
             if (envelope.message.properties._flags & AMQP_BASIC_REPLY_TO_FLAG) {
 
@@ -81,13 +94,17 @@ namespace capy::amqp {
                     static_cast<std::uint8_t *>(envelope.message.body.bytes) + envelope.message.body.len);
 
             try {
+
               capy::json json = json::from_msgpack(buffer);
-              on_replay(json, reply_to_routing_key, envelope.delivery_tag);
+              do_complete = on_replay(json, reply_to_routing_key, routing_key, correlation_id, envelope.delivery_tag);
 
             }
+
             catch (std::exception &exception) {
+
               amqp_queue_delete(producer_conn, channel_id, amqp_cstring_bytes(reply_to_routing_key.c_str()), 1, 1);
               std::cerr << "capy::Broker::error: consume message: " << exception.what() << std::endl;
+
             }
 
           }
@@ -96,33 +113,33 @@ namespace capy::amqp {
           amqp_maybe_release_buffers(producer_conn);
           amqp_maybe_release_buffers_on_channel(producer_conn, channel_id);
 
-          on_complete();
+          if (do_complete) on_complete();
         }
 
-        void consuming(const std::function<void(const capy::json& body,
-                                                const std::string& reply_to,
-                                                uint64_t delivery_tag)> on_replay) {
+        void consuming(
+                const std::function<bool(const capy::json& body, const std::string& reply_to, const std::string& routing_key, const std::string& correlation_id, uint64_t delivery_tag)> on_replay) {
 
           while (!isExited) {
-            consume_once(on_replay,[]{});
+            consume_once(on_replay, []{});
           }
 
         }
 
 
-        Error publish(const capy::json& message,
-                      const std::string &exchange_name,
-                      const std::string& routing_key,
-                      const std::optional<ListenHandler>& on_data) {
+        Error publish(
+                const std::string &correlation_id,
+                const capy::json& message,
+                const std::string &exchange_name,
+                const std::string& routing_key,
+                const std::optional<FetchHandler>& on_data) {
 
           amqp_basic_properties_t props;
+
           std::string reply_to_queue;
 
-          uint32_t current_id = 0;
+          props._flags = 0;
 
           if (on_data.has_value()) {
-
-            current_id = BrokerImpl::correlation_id++;
 
             //
             // create private reply_to queue
@@ -148,21 +165,24 @@ namespace capy::amqp {
 
             reply_to_queue = std::string(static_cast<char *>(r->queue.bytes), r->queue.len);
 
-            props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG |
-                           AMQP_BASIC_DELIVERY_MODE_FLAG | AMQP_BASIC_REPLY_TO_FLAG |
-                           AMQP_BASIC_CORRELATION_ID_FLAG;
-
-            props.content_type = amqp_cstring_bytes("text/plain");
-            props.delivery_mode = 2; /* persistent delivery mode */
             props.reply_to = amqp_cstring_bytes(reply_to_queue.c_str());
+
+            props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG |
+                           AMQP_BASIC_DELIVERY_MODE_FLAG |
+                           AMQP_BASIC_REPLY_TO_FLAG;
+
+            props.delivery_mode = 2; /* persistent delivery mode */
+            props.content_type = amqp_cstring_bytes("text/plain");
 
             if (props.reply_to.bytes == NULL) {
               return capy::Error(BrokerError::QUEUE_DECLARATION, "Out of memory while copying queue name");
             }
 
-            props.correlation_id = amqp_cstring_bytes(std::to_string(current_id).c_str());
-
           }
+
+          props._flags |= AMQP_BASIC_CORRELATION_ID_FLAG;
+
+          props.correlation_id = amqp_cstring_bytes(correlation_id.c_str());
 
           //
           // publish
@@ -174,14 +194,13 @@ namespace capy::amqp {
           message_bytes.len = data.size();
           message_bytes.bytes = data.data();
 
-
           auto ret = amqp_basic_publish(producer_conn,
                                         channel_id,
                                         exchange_name.empty() ? amqp_empty_bytes : amqp_cstring_bytes(exchange_name.c_str()),
                                         amqp_cstring_bytes(routing_key.c_str()),
                                         0,
                                         0,
-                                        on_data.has_value() ? &props : NULL,
+                                        &props,
                                         message_bytes);
 
 
@@ -192,7 +211,6 @@ namespace capy::amqp {
           if (on_data.has_value()) {
 
             std::string error_message;
-
 
             //
             // Consume queue
@@ -208,16 +226,25 @@ namespace capy::amqp {
             }
 
 
-            consume_once([&on_data, this, current_id, &props](const capy::json& body, const std::string& reply_to, uint64_t delivery_tag) {
+            consume_once(
+                    [&on_data, this, correlation_id, &props]
+                            (const capy::json& body, const std::string& reply_to, const std::string& routing_key, const std::string& replay_correlation_id, uint64_t delivery_tag)
+                    {
 
-              capy::amqp::Task::Instance().async([=]{
-                  Result <json> skip;
-                  on_data.value()(body,skip);
-              });
+                        if (correlation_id != replay_correlation_id)
+                          return false;
 
-            }, [this, &props]{
-                amqp_queue_delete(producer_conn, channel_id, props.reply_to, 0, 0);
-            });
+                        capy::amqp::Task::Instance().async([=]{
+                            on_data.value()(body);
+                        });
+
+                        return true;
+                    },
+
+                    [this, &props]
+                    {
+                        amqp_queue_delete(producer_conn, channel_id, props.reply_to, 0, 0);
+                    });
 
           }
 
@@ -292,38 +319,41 @@ namespace capy::amqp {
                       replay);
             }
 
-            consuming([&on_data, this](const capy::json& body, const std::string& reply_to, uint64_t delivery_tag){
+            consuming(
+                    [&on_data, this](const capy::json& body, const std::string& reply_to, const std::string& routing_key, const std::string& correlation_id, uint64_t delivery_tag){
 
-                amqp_basic_ack(producer_conn, channel_id, delivery_tag, 1);
+                        amqp_basic_ack(producer_conn, channel_id, delivery_tag, 1);
 
-                capy::amqp::Task::Instance().async([=]{
+                        capy::amqp::Task::Instance().async([=]{
 
-                    try {
+                            try {
 
-                      Result<json> replay;
+                              Result<json> replay;
 
-                      on_data(body, replay);
+                              on_data(Rpc(routing_key, body), replay);
 
-                      if (!replay) {
-                        return;
-                      }
+                              if (!replay) {
+                                return;
+                              }
 
-                      if (replay->empty()) {
-                        std::cerr << "capy::Broker::error: replay is empty" << std::endl;
-                        return;
-                      }
+                              if (replay->empty()) {
+                                std::cerr << "capy::Broker::error: replay is empty" << std::endl;
+                                return;
+                              }
 
-                      publish(replay.value(), "", reply_to, std::nullopt);
+                              publish(correlation_id, replay.value(), "", reply_to, std::nullopt);
 
-                    }
-                    catch (json::exception &exception) {
-                      throw_abort(exception.what());
-                    }
-                    catch (...) {
-                      throw_abort("Unexpected excaption...");
-                    }
-                });
-            });
+                            }
+                            catch (json::exception &exception) {
+                              throw_abort(exception.what());
+                            }
+                            catch (...) {
+                              throw_abort("Unexpected excaption...");
+                            }
+                        });
+
+                        return true;
+                    });
 
           }
           catch (std::exception &exception) {
@@ -409,7 +439,8 @@ namespace capy::amqp {
     // fetch
     //
     Error Broker::fetch(const capy::json& message, const std::string& routing_key, const FetchHandler& on_data) {
-      return impl_->publish(message, impl_->exchange_name, routing_key, [&](const Result<json> &message, Result<json> &replay){
+      std::string correlation_id(std::to_string(BrokerImpl::correlation_id++).c_str());
+      return impl_->publish(correlation_id, message, impl_->exchange_name, routing_key, [&](const Result<json> &message){
           try {
             on_data(message);
           }
@@ -436,7 +467,8 @@ namespace capy::amqp {
     // publish
     //
     Error Broker::publish(const capy::json& message, const std::string& routing_key) {
-      return impl_->publish(message, impl_->exchange_name,routing_key,std::nullopt);
+      std::string correlation_id(std::to_string(BrokerImpl::correlation_id++).c_str());
+      return impl_->publish(correlation_id, message, impl_->exchange_name, routing_key, std::nullopt);
     }
 
     ///

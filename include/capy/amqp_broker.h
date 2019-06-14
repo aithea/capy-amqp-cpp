@@ -12,6 +12,7 @@
 #include <memory>
 #include <thread>
 #include <algorithm>
+#import <map>
 
 #include "capy/dispatchq.h"
 #include "capy/amqp_common.h"
@@ -20,15 +21,39 @@
 
 namespace capy::amqp {
 
-    /***
-     * Fetcher handling messages
+    struct Rpc {
+        std::string routing_key;
+        capy::json  message;
+        Rpc() = default;
+        Rpc(const Rpc&) = default;
+        Rpc(const std::string& akey, const capy::json& aMessage): routing_key(akey), message(aMessage){};
+    };
+
+    /**
+     * Expected fetching response data type
      */
-    typedef std::function<void(const Result<json>& message)> FetchHandler;
+    typedef Result<json> Response;
+
+    /**
+     * Expected listening request data type. Contains json-like structure of action key and routing key of queue
+     */
+    typedef Result<Rpc> Request;
+
+    /**
+     * Replay data type
+     */
+    typedef Result<json> Replay;
+
 
     /***
-     * Listener handling action messages and replies
+     * Fetcher handling request
      */
-    typedef std::function<void(const Result<json>& message, Result<json>& replay)> ListenHandler;
+    typedef std::function<void(const Response& request)> FetchHandler;
+
+    /***
+     * Listener handling action request and replies
+     */
+    typedef std::function<void(const Request& request, Replay& replay)> ListenHandler;
 
     /***
      * AMQP Broker errors

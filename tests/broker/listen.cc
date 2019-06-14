@@ -25,16 +25,15 @@ TEST(Exchange, ListenTest) {
         int counter = 0;
         broker->listen(
                 "capy-test",
-                {"something.find"},
-                [&](const capy::Result<capy::json>& message,
-                    capy::Result<capy::json>& replay)
+                {"something.*"},
+                [&](const capy::amqp::Request& request, capy::amqp::Replay& replay)
                 {
 
-                    if (!message) {
-                      std::cerr << " listen error: " << message.error().value() << "/" << message.error().message() << std::endl;
+                    if (!request) {
+                      std::cerr << " listen error: " << request.error().value() << "/" << request.error().message() << std::endl;
                     }
                     else {
-                      std::cout << " listen["<< counter << "] received: " << message.value().dump(4) << std::endl;
+                      std::cout << " listen["<< counter << "] received ["<< request->routing_key << "]: " << request->message.dump(4) << std::endl;
                       replay.value() = {"reply", true, counter};
                       counter++;
                     }
@@ -66,7 +65,11 @@ TEST(Exchange, ListenTest) {
 
           std::cout << "fetch[" << i << "] action: " <<  action.dump(4) << std::endl;
 
-          if (auto error = broker->fetch(action, "something.find", [&](const capy::Result<capy::json> &message){
+          std::string key = "something.find";
+
+          key.append(std::to_string(i));
+
+          if (auto error = broker->fetch(action, key, [&](const capy::Result<capy::json> &message){
 
 
               if (!message){
