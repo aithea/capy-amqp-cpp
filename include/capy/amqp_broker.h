@@ -12,7 +12,7 @@
 #include <memory>
 #include <thread>
 #include <algorithm>
-#import <map>
+#include <map>
 
 #include "capy/dispatchq.h"
 #include "capy/amqp_common.h"

@@ -27,7 +27,7 @@ namespace capy::amqp {
 
     public:
 
-        BrokerImpl(amqp_channel_t aChannel_id):isExited(false),channel_id(aChannel_id){};
+        BrokerImpl(amqp_channel_t aChannel_id):channel_id(aChannel_id),isExited(false){};
 
         ~BrokerImpl(){
 

@@ -4,6 +4,7 @@
 
 #include "capy/amqp_common.h"
 #include <string>
+#include <cstdarg>
 
 namespace capy {
 
