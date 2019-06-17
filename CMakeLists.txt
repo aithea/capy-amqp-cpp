@@ -62,7 +62,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 
     message(STATUS "Using gcc" )
 
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -W -Wall -Wextra -Wno-ignored-qualifiers -Wvariadic-macros -static-libgcc -static-libstdc++ ")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -W -Wall -Wextra -Wno-ignored-qualifiers -Wvariadic-macros -pthread -static-libgcc -static-libstdc++ ")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 
     if (${CMAKE_SYSTEM_NAME} STREQUAL Linux)
@@ -110,6 +110,7 @@ ExternalProject_Add(rabbitmq-c
         -DBUILD_STATIC_LIBS=ON
         -DBUILD_TESTS=OFF
         -DBUILD_TOOLS_DOCS=OFF
+	-DCMAKE_INSTALL_LIBDIR=${EXTERNAL_INSTALL_LOCATION}/lib
         )
 
 #

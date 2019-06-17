@@ -1,0 +1,1 @@
+CAPY_AMQP_ADDRESS=amqp://guest:guest@localhost:5672/
