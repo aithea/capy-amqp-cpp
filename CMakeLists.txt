@@ -29,7 +29,8 @@ file (WRITE "${VERSION_FILE}" "${PROJECT_NAME} ${PROJECT_VERSION}")
 #
 # Packages
 #
-find_package(openssl REQUIRED)
+find_package (OpenSSL)
+
 
 #
 # Programms
