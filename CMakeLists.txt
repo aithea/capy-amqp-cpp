@@ -118,7 +118,10 @@ ExternalProject_Add(rabbitmq-c
 #
 ExternalProject_Add(capy-dispatchq
         GIT_REPOSITORY https://github.com/aithea/capy-dispatchq
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DBUILD_TESTING=OFF
+        CMAKE_ARGS
+        -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+        -DBUILD_TESTING=OFF
         )
 
 #
