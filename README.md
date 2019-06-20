@@ -33,6 +33,40 @@ Acинхронный клиент к брокеру сообщений реал�
  $ cd ./capy-amqp-cpp; mkdir -p build; cd build; cmake  -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl ..; make -j 4 
 ```
 
+## Ускорение сборки за счет предустановленных пакетов
+Переменная ``OPENSSL_ROOT_DIR`` может быть использована только для OSX сборок. 
+####Install pkg-config: 
+ 1. On Linux: ```sudo apt-get install pkg-config```
+ 1. On OSX: ```brew install pkg-config```
+
+####Install googletest:
+```
+$ git clone https://github.com/google/googletest
+$ cd googletest; mkdir build; cd build; cmake ..
+$ make -j 4; sudo make install
+``` 
+
+####Install capy-dispatchq:
+```
+$ git clone https://github.com/aithea/capy-dispatchq
+$ cd capy-dispatchq; mkdir build; cd build; cmake ..
+$ make; sudo make install
+```
+
+####install rabbitmq-c:
+```
+$ git clone https://github.com/alanxz/rabbitmq-c
+$ cd rabbitmq-c; mkdir build; cd build; cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF -DBUILD_STATIC_LIBS=ON -DBUILD_TESTS=OFF -DBUILD_TOOLS_DOCS=OFF -DENABLE_SSL_SUPPORT=OFF ..
+$ make; sudo make install
+```
+
+####install AMQP-CPP:
+```
+$ git clone https://github.com/dnevera/AMQP-CPP
+$ cd AMQP-CPP; mkdir build; cd build; cmake  -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DCMAKE_INSTALL_PREFIX=/usr/local -DAMQP-CPP_LINUX_TCP=ON -DAMQP-CPP_BUILD_SHARED=OFF -DAMQP-CPP_BUILD_EXAMPLES=OFF ..
+$ make; sudo make install
+```
+
 ## Типы данных
 
 1. capy::Error - хендлер ошибок, фреймворк не выбрасывает исключение и не транслирует искоючение из используемых модулей, все исключения перехватываются и хендлятся в capy::Error  
