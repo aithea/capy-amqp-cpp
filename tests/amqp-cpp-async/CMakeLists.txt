@@ -1,7 +1,7 @@
 set (TEST amqp-cpp-async-test)
 include(../CMakeCommonTest.in)
 
-if (${amqpcpp_FOUND})
+if (NOT ${amqpcpp_FOUND})
     add_dependencies(
             ${TEST}
             AMQP-CPP

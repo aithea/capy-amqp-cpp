@@ -1,0 +1,13 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: capy-amqp-cpp
+Description: Capy amqp layer SDK
+Version: @PROJECT_VERSION@
+URL: https://github.com/aithea/capy-amqp-cpp
+Requires.private: @requires_private@
+Libs: -L${libdir} -lcapy_amqp_cpp
+Libs.private: @libs_private@
+CFlags: -I${includedir}
