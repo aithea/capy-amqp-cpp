@@ -29,17 +29,21 @@ file (WRITE "${VERSION_FILE}" "${PROJECT_NAME} ${PROJECT_VERSION}")
 #
 # Packages
 #
-find_package (OpenSSL)
+find_package(PkgConfig QUIET)
 
+if(NOT PKG_CONFIG_FOUND)
+    message(FATAL_ERROR "pkg-config not found!" )
+    message(FATAL_ERROR "sudo apt-get install pkg-config, or brew install pkg-config")
+endif()
+
+find_package (OpenSSL)
+pkg_check_modules(libuv REQUIRED libuv)
 
 #
 # Programms
 #
 find_program(CCACHE_FOUND ccache)
 find_program(MAKE_EXE NAMES gmake nmake make)
-
-message(STATUS "Using OpenSSL ${OPENSSL_VERSION}")
-message(STATUS "Using OpenSSL DIR ${OPENSSL_ROOT_DIR}")
 
 
 #
@@ -91,31 +95,84 @@ endif ()
 include(ExternalProject)
 
 #
+# External project dependencies
+#
+set(CAPY_WORKSPACE_DEPENDECIES)
+set(CAPY_WORKSPACE_LIBRARIES ${libuv_LIBRARIES})
+
+#
 # Google Test
 #
-ExternalProject_Add(googletest
-        GIT_REPOSITORY https://github.com/google/googletest
+find_package(GTest)
+if (NOT GTEST_FOUND)
+    ExternalProject_Add(googletest
+x            )
+    set(CAPY_WORKSPACE_DEPENDECIES googletest)
+endif ()
+
+#
+# AMQP-CPP
+#
+pkg_check_modules(amqpcpp QUIET amqpcpp.pc)
+if (NOT ${amqpcpp_FOUND})
+ExternalProject_Add(AMQP-CPP
+        GIT_REPOSITORY https://github.com/dnevera/AMQP-CPP
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+        -DAMQP-CPP_LINUX_TCP=ON
+        -DAMQP-CPP_BUILD_SHARED=OFF
+        -DAMQP-CPP_BUILD_EXAMPLES=OFF
+        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+        -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
         )
+    set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};amqpcpp)
+    set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};amqpcpp)
+elseif()
+    message(STATUS "amqpcpp: ${amqpcpp_LIBRARIES}, ${amqpcpp_LIBRARY_DIRS} ${amqpcpp_INCLUDE_DIRS}")
+    include_directories(
+            ${amqpcpp_INCLUDE_DIRS}
+    )
+    link_directories(
+            ${amqpcpp_LIBRARY_DIRS}
+    )
+    set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};${amqpcpp_LIBRARIES})
+endif()
 
 #
 # Rabbit rappitmq-c
 #
-ExternalProject_Add(rabbitmq-c
-        GIT_REPOSITORY https://github.com/alanxz/rabbitmq-c
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
-        -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
-        -DBUILD_EXAMPLES=OFF
-        -DBUILD_SHARED_LIBS=OFF
-        -DBUILD_STATIC_LIBS=ON
-        -DBUILD_TESTS=OFF
-        -DBUILD_TOOLS_DOCS=OFF
-	    -DCMAKE_INSTALL_LIBDIR=${EXTERNAL_INSTALL_LOCATION}/lib
-        )
+pkg_check_modules(librabbitmq QUIET librabbitmq)
+if (NOT ${librabbitmq_FOUND})
+    ExternalProject_Add(rabbitmq-c
+            GIT_REPOSITORY https://github.com/alanxz/rabbitmq-c
+            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+            -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
+            -DBUILD_EXAMPLES=OFF
+            -DBUILD_SHARED_LIBS=OFF
+            -DBUILD_STATIC_LIBS=ON
+            -DBUILD_TESTS=OFF
+            -DBUILD_TOOLS_DOCS=OFF
+            -DCMAKE_INSTALL_LIBDIR=${EXTERNAL_INSTALL_LOCATION}/lib
+            )
+    set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};rabbitmq-c)
+    set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};rabbitmq)
+else()
+    message(STATUS "rabbitmq-c: ${librabbitmq_LIBRARIES}, ${librabbitmq_LIBRARY_DIRS} ${librabbitmq_INCLUDE_DIRS}")
+    include_directories(
+            ${librabbitmq_INCLUDE_DIRS}
+    )
+    link_directories(
+            ${librabbitmq_LIBRARY_DIRS}
+    )
+    set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};${librabbitmq_LIBRARIES})
+endif()
+
 
 #
 # Capy threads pool dispatcher
 #
+pkg_check_modules(capy_dispatchq QUIET capy-dispatchq)
+
+if (NOT ${capy_dispatchq_FOUND})
 ExternalProject_Add(capy-dispatchq
         GIT_REPOSITORY https://github.com/aithea/capy-dispatchq
         CMAKE_ARGS
@@ -123,6 +180,19 @@ ExternalProject_Add(capy-dispatchq
         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
         -DBUILD_TESTING=OFF
         )
+    set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};capy-dispatchq)
+    set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};capy_dispatchq)
+
+elseif()
+    message(STATUS "capy-dispatchq: ${capy_dispatchq_LIBRARIES}, ${capy_dispatchq_LIBRARY_DIRS} ${capy_dispatchq_INCLUDE_DIRS}")
+    include_directories(
+            ${capy_dispatchq_INCLUDE_DIRS}
+    )
+    link_directories(
+            ${capy_dispatchq_LIBRARY_DIRS}
+    )
+    set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};${capy_dispatchq_LIBRARIES})
+endif()
 
 #
 # Details

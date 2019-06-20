@@ -6,6 +6,7 @@ include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}/src/
         ${EXTERNAL_LOCATION}
         ${OPENSSL_INCLUDE_DIR}
+        ${libuv_INCLUDEDIR}
 )
 
 FILE(GLOB PUBLIC_INCLUDE_FILES
