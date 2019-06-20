@@ -106,14 +106,16 @@ set(CAPY_WORKSPACE_LIBRARIES ${libuv_LIBRARIES})
 find_package(GTest)
 if (NOT GTEST_FOUND)
     ExternalProject_Add(googletest
-x            )
+            GIT_REPOSITORY https://github.com/google/googletest
+            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+            )
     set(CAPY_WORKSPACE_DEPENDECIES googletest)
 endif ()
 
 #
 # AMQP-CPP
 #
-pkg_check_modules(amqpcpp QUIET amqpcpp.pc)
+pkg_check_modules(amqpcpp amqpcpp)
 if (NOT ${amqpcpp_FOUND})
 ExternalProject_Add(AMQP-CPP
         GIT_REPOSITORY https://github.com/dnevera/AMQP-CPP
@@ -126,7 +128,7 @@ ExternalProject_Add(AMQP-CPP
         )
     set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};amqpcpp)
     set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};amqpcpp)
-elseif()
+else()
     message(STATUS "amqpcpp: ${amqpcpp_LIBRARIES}, ${amqpcpp_LIBRARY_DIRS} ${amqpcpp_INCLUDE_DIRS}")
     include_directories(
             ${amqpcpp_INCLUDE_DIRS}
@@ -140,7 +142,7 @@ endif()
 #
 # Rabbit rappitmq-c
 #
-pkg_check_modules(librabbitmq QUIET librabbitmq)
+pkg_check_modules(librabbitmq librabbitmq)
 if (NOT ${librabbitmq_FOUND})
     ExternalProject_Add(rabbitmq-c
             GIT_REPOSITORY https://github.com/alanxz/rabbitmq-c
@@ -166,11 +168,10 @@ else()
     set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};${librabbitmq_LIBRARIES})
 endif()
 
-
 #
 # Capy threads pool dispatcher
 #
-pkg_check_modules(capy_dispatchq QUIET capy-dispatchq)
+pkg_check_modules(capy_dispatchq capy-dispatchq)
 
 if (NOT ${capy_dispatchq_FOUND})
 ExternalProject_Add(capy-dispatchq
@@ -183,7 +184,7 @@ ExternalProject_Add(capy-dispatchq
     set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};capy-dispatchq)
     set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};capy_dispatchq)
 
-elseif()
+else()
     message(STATUS "capy-dispatchq: ${capy_dispatchq_LIBRARIES}, ${capy_dispatchq_LIBRARY_DIRS} ${capy_dispatchq_INCLUDE_DIRS}")
     include_directories(
             ${capy_dispatchq_INCLUDE_DIRS}
@@ -230,3 +231,25 @@ if (DOXYGEN_FOUND)
 else (DOXYGEN_FOUND)
     message("Doxygen need to be installed to generate the doxygen documentation")
 endif (DOXYGEN_FOUND)
+
+
+# Install package
+#
+if (NOT CMAKE_INSTALL_LIBDIR)
+    set(CMAKE_INSTALL_LIBDIR  lib)
+endif ()
+if (NOT CMAKE_INSTALL_INCLUDEDIR)
+    set(CMAKE_INSTALL_INCLUDEDIR  include)
+endif ()
+
+set(prefix ${CMAKE_INSTALL_PREFIX})
+set(exec_prefix "\${prefix}")
+set(libdir "\${exec_prefix}/${CMAKE_INSTALL_LIBDIR}")
+set(includedir "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
+
+configure_file(${CMAKE_SOURCE_DIR}/capy-amqp-cpp.pc.in ${CMAKE_CURRENT_BINARY_DIR}/capy-amqp-cpp.pc @ONLY)
+
+install(FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/capy-amqp-cpp.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+        )

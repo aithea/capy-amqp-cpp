@@ -20,7 +20,6 @@ target_link_libraries(
         capy_amqp_cpp
         capy_dispatchq
         ${CAPY_WORKSPACE_LIBRARIES}
-        ${libuv_LIBRARIES}
 )
 
 if (${CAPY_WORKSPACE_DEPENDECIES})
