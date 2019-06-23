@@ -12,421 +12,176 @@
 #include <thread>
 #include <future>
 
+#include <uv.h>
+#include <amqpcpp.h>
+#include <amqpcpp/libuv.h>
+
+#include <future>
+
+#include "impl/amqp_handler_impl.h"
+#include "impl/amqp_broker_impl.h"
+
 namespace capy::amqp {
 
-    bool die_on_amqp_error(amqp_rpc_reply_t x, char const *context, std::string &return_string);
+    inline static AMQP::Login to_login(const capy::amqp::Login& login) {
+      return AMQP::Login(login.get_username(), login.get_password());
+    }
 
-    class BrokerImpl {
+    inline static  AMQP::Address to_address(const capy::amqp::Address& address) {
+      return AMQP::Address(address.get_hostname(), address.get_port(), to_login(address.get_login()), address.get_vhost());
+    }
 
-    public:
-        amqp_channel_t channel_id;
-        std::string exchange_name;
-        bool isExited;
-        static std::atomic_uint32_t correlation_id;
-        amqp_connection_state_t producer_conn;
+    inline static uv_loop_t * uv_loop_t_allocator() {
+      uv_loop_t *loop = (uv_loop_t*)malloc(sizeof(uv_loop_t));
+      uv_loop_init(loop);
+      return loop;
+    }
 
-    public:
-
-        BrokerImpl(amqp_channel_t aChannel_id):channel_id(aChannel_id),isExited(false){};
-
-        ~BrokerImpl(){
-
-          isExited = true;
-
-          std::string error_message;
-
-          ///
-          /// @todo
-          /// Solve debug logging problem...
-          ///
-
-          if (die_on_amqp_error(amqp_channel_close(producer_conn, channel_id, AMQP_REPLY_SUCCESS), "Closing channel", error_message)) {
-            std::cerr << error_message << std::endl;
-          }
-
-          if (die_on_amqp_error(amqp_connection_close(producer_conn, AMQP_REPLY_SUCCESS), "Closing connection", error_message)) {
-            std::cerr << error_message << std::endl;
-          }
-
-          if(amqp_destroy_connection(producer_conn)){
-            std::cerr << "Ending connection error..." << std::endl;
-          }
-
+    struct uv_loop_t_deallocator {
+        void operator()(uv_loop_t* loop) const {
+          std::cerr << "Call delete from function uv_loop_t_deallocator from bind..." << std::endl;
+          uv_stop(loop);
+          uv_loop_close(loop);
+          free(loop);
         }
-
-        void consume_once(
-                const std::function<bool(const capy::json& body, const std::string& reply_to, const std::string& routing_key, const std::string& correlation_id, uint64_t delivery_tag)> on_replay,
-                const std::function<void()> on_complete) {
-
-          amqp_rpc_reply_t ret;
-          amqp_envelope_t envelope;
-
-          ret = amqp_consume_message(producer_conn, &envelope, NULL, 0);
-
-          std::string correlation_id;
-
-          bool do_complete = false;
-
-          if (AMQP_RESPONSE_NORMAL == ret.reply_type) {
-
-            if ((envelope.message.properties._flags & AMQP_BASIC_CORRELATION_ID_FLAG) /*&& !correlation_id.empty()*/) {
-              correlation_id = std::string(
-                      static_cast<char *>(envelope.message.properties.correlation_id.bytes),
-                      envelope.message.properties.correlation_id.len);
-            }
-
-            std::string reply_to_routing_key;
-            std::string routing_key;
-
-            if (envelope.routing_key.bytes != NULL) {
-              routing_key = std::string(static_cast<char*>(envelope.routing_key.bytes), envelope.routing_key.len);
-            }
-
-            if (envelope.message.properties._flags & AMQP_BASIC_REPLY_TO_FLAG) {
-
-              reply_to_routing_key = std::string(
-                      static_cast<char *>(envelope.message.properties.reply_to.bytes),
-                      envelope.message.properties.reply_to.len);
-            }
-
-            std::vector<std::uint8_t> buffer(
-                    static_cast<std::uint8_t *>(envelope.message.body.bytes),
-                    static_cast<std::uint8_t *>(envelope.message.body.bytes) + envelope.message.body.len);
-
-            try {
-
-              capy::json json = json::from_msgpack(buffer);
-              do_complete = on_replay(json, reply_to_routing_key, routing_key, correlation_id, envelope.delivery_tag);
-
-            }
-
-            catch (std::exception &exception) {
-
-              amqp_queue_delete(producer_conn, channel_id, amqp_cstring_bytes(reply_to_routing_key.c_str()), 1, 1);
-              std::cerr << "capy::Broker::error: consume message: " << exception.what() << std::endl;
-
-            }
-
-          }
-
-          amqp_destroy_envelope(&envelope);
-          amqp_maybe_release_buffers(producer_conn);
-          amqp_maybe_release_buffers_on_channel(producer_conn, channel_id);
-
-          if (do_complete) on_complete();
-        }
-
-        void consuming(
-                const std::function<bool(const capy::json& body, const std::string& reply_to, const std::string& routing_key, const std::string& correlation_id, uint64_t delivery_tag)> on_replay) {
-
-          while (!isExited) {
-            consume_once(on_replay, []{});
-          }
-
-        }
-
-
-        Error publish(
-                const std::string &correlation_id,
-                const capy::json& message,
-                const std::string &exchange_name,
-                const std::string& routing_key,
-                const std::optional<FetchHandler>& on_data) {
-
-          amqp_basic_properties_t props;
-
-          std::string reply_to_queue;
-
-          props._flags = 0;
-
-          if (on_data.has_value()) {
-
-            //
-            // create private reply_to queue
-            //
-
-            amqp_queue_declare_ok_t *r =
-                    amqp_queue_declare(
-                            producer_conn, channel_id, amqp_empty_bytes, 0, 0, 1, 1, amqp_empty_table);
-
-            std::string error_message;
-
-            if (!r) {
-              return capy::Error(BrokerError::QUEUE_DECLARATION, "Connection has been lost");
-            }
-
-            if (die_on_amqp_error(amqp_get_rpc_reply(producer_conn), "Publisher declaring queue", error_message)) {
-              return capy::Error(BrokerError::QUEUE_DECLARATION, error_message);
-            }
-
-            if (r->queue.bytes == NULL) {
-              return capy::Error(BrokerError::QUEUE_DECLARATION, "Out of memory while copying queue name");
-            }
-
-            reply_to_queue = std::string(static_cast<char *>(r->queue.bytes), r->queue.len);
-
-            props.reply_to = amqp_cstring_bytes(reply_to_queue.c_str());
-
-            props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG |
-                           AMQP_BASIC_DELIVERY_MODE_FLAG |
-                           AMQP_BASIC_REPLY_TO_FLAG;
-
-            props.delivery_mode = 2; /* persistent delivery mode */
-            props.content_type = amqp_cstring_bytes("text/plain");
-
-            if (props.reply_to.bytes == NULL) {
-              return capy::Error(BrokerError::QUEUE_DECLARATION, "Out of memory while copying queue name");
-            }
-
-          }
-
-          props._flags |= AMQP_BASIC_CORRELATION_ID_FLAG;
-
-          props.correlation_id = amqp_cstring_bytes(correlation_id.c_str());
-
-          //
-          // publish
-          //
-
-          amqp_bytes_t message_bytes;
-          auto data = json::to_msgpack(message);
-
-          message_bytes.len = data.size();
-          message_bytes.bytes = data.data();
-
-          auto ret = amqp_basic_publish(producer_conn,
-                                        channel_id,
-                                        exchange_name.empty() ? amqp_empty_bytes : amqp_cstring_bytes(exchange_name.c_str()),
-                                        amqp_cstring_bytes(routing_key.c_str()),
-                                        0,
-                                        0,
-                                        &props,
-                                        message_bytes);
-
-
-          if (ret) {
-            return Error(BrokerError::PUBLISH, error_string("Could not produce message to routingkey: %s", routing_key.c_str()));
-          }
-
-          if (on_data.has_value()) {
-
-            std::string error_message;
-
-            //
-            // Consume queue
-            //
-            amqp_basic_consume(producer_conn,
-                               channel_id,
-                               amqp_cstring_bytes(reply_to_queue.c_str()),
-                               amqp_empty_bytes,
-                               0, 0, 0, amqp_empty_table);
-
-            if (die_on_amqp_error(amqp_get_rpc_reply(producer_conn), "Consuming rpc", error_message)) {
-              return capy::Error(BrokerError::QUEUE_CONSUMING, error_message);
-            }
-
-
-            consume_once(
-                    [&on_data, this, correlation_id, &props]
-                            (const capy::json& body, const std::string& reply_to, const std::string& routing_key, const std::string& replay_correlation_id, uint64_t delivery_tag)
-                    {
-
-                        if (correlation_id != replay_correlation_id)
-                          return false;
-
-                        capy::amqp::Task::Instance().async([=]{
-                            on_data.value()(body);
-                        });
-
-                        return true;
-                    },
-
-                    [this, &props]
-                    {
-                        amqp_queue_delete(producer_conn, channel_id, props.reply_to, 0, 0);
-                    });
-
-          }
-
-          return Error(CommonError::OK);
-        }
-
-        void listen(
-                const std::string& queue,
-                const std::vector<std::string>& routing_keys,
-                const capy::amqp::ListenHandler& on_data) {
-          try {
-
-            std::string error_message;
-
-            //
-            //
-            // declare named queue
-            //
-
-            amqp_queue_declare_ok_t *declare =
-                    amqp_queue_declare(producer_conn, channel_id, amqp_cstring_bytes(queue.c_str()), 0, 1, 0, 0, amqp_empty_table);
-
-
-            if (die_on_amqp_error(amqp_get_rpc_reply(producer_conn), "Listener declaring queue", error_message)) {
-              Result<json> replay;
-              return on_data(
-                      capy::make_unexpected(capy::Error(BrokerError::QUEUE_DECLARATION, error_message)),
-                      replay);
-            }
-
-            if (declare->queue.bytes == NULL) {
-              Result<json> replay;
-              return on_data(
-                      capy::make_unexpected(
-                              capy::Error(BrokerError::QUEUE_DECLARATION, "Queue name declaration mismatched")),
-                      replay);
-            }
-
-            //
-            // bind routing key
-            //
-
-            for (auto &routing_key: routing_keys) {
-
-              amqp_queue_bind(producer_conn,
-                              channel_id,
-                              amqp_cstring_bytes(queue.c_str()),
-                              amqp_cstring_bytes(exchange_name.c_str()),
-                              amqp_cstring_bytes(routing_key.c_str()), amqp_empty_table);
-
-              if (die_on_amqp_error(amqp_get_rpc_reply(producer_conn), "Binding queue", error_message)) {
-                Result<json> replay;
-                return on_data(
-                        capy::make_unexpected(capy::Error(BrokerError::QUEUE_DECLARATION, error_message)),
-                        replay);
-              }
-            }
-
-            //
-            // Consume queue
-            //
-            amqp_basic_consume(producer_conn,
-                               channel_id,
-                               amqp_cstring_bytes(queue.c_str()),
-                               amqp_empty_bytes,
-                               0, 0, 0, amqp_empty_table);
-
-            if (die_on_amqp_error(amqp_get_rpc_reply(producer_conn), "Consuming", error_message)) {
-              Result<json> replay;
-              return on_data(
-                      capy::make_unexpected(capy::Error(BrokerError::QUEUE_CONSUMING, error_message)),
-                      replay);
-            }
-
-            consuming(
-                    [&on_data, this](const capy::json& body, const std::string& reply_to, const std::string& routing_key, const std::string& correlation_id, uint64_t delivery_tag){
-
-                        amqp_basic_ack(producer_conn, channel_id, delivery_tag, 1);
-
-                        capy::amqp::Task::Instance().async([=]{
-
-                            try {
-
-                              Result<json> replay;
-
-                              on_data(Rpc(routing_key, body), replay);
-
-                              if (!replay) {
-                                return;
-                              }
-
-                              if (replay->empty()) {
-                                std::cerr << "capy::Broker::error: replay is empty" << std::endl;
-                                return;
-                              }
-
-                              publish(correlation_id, replay.value(), "", reply_to, std::nullopt);
-
-                            }
-                            catch (json::exception &exception) {
-                              throw_abort(exception.what());
-                            }
-                            catch (...) {
-                              throw_abort("Unexpected excaption...");
-                            }
-                        });
-
-                        return true;
-                    });
-
-          }
-          catch (std::exception &exception) {
-            std::cerr << "capy::Broker::error: " << exception.what() << std::endl;
-          }
-          catch (...) {
-            std::cerr << "capy::Broker::error: Unknown error" << std::endl;
-          }
-        }
-
     };
-
-    std::atomic_uint32_t BrokerImpl::correlation_id = 0;
-
 
     //
     // MARK: - bind
     //
-    Result<Broker> Broker::Bind(const capy::amqp::Address& address, const std::string& exchange_name) {
+    Result <Broker> Broker::Bind(const capy::amqp::Address &address, const std::string &exchange_name) {
 
-      amqp_channel_t channel_id = 1;
+      try {
+        auto loop = std::shared_ptr<uv_loop_t>(uv_loop_t_allocator(), uv_loop_t_deallocator());
+        if (loop == nullptr) {
+          return capy::make_unexpected(
+                  capy::Error(BrokerError::MEMORY,
+                              error_string("Connection event loop could not be created because memory error..")));
+        }
 
-      amqp_connection_state_t producer_conn = amqp_new_connection();
-      amqp_socket_t *producer_socket = amqp_tcp_socket_new(producer_conn);
+        auto handler = std::shared_ptr<ConnectionHandler>(new ConnectionHandler(loop.get()));
 
-      if (!producer_socket) {
-        return capy::make_unexpected(capy::Error(BrokerError::CONNECTION,
-                                                 error_string("Tcp socket could not be created...")));
+        if (handler == nullptr) {
+          return capy::make_unexpected(
+                  capy::Error(BrokerError::MEMORY,
+                              error_string("Connection handler could not be created because memory error..")));
+        }
+
+        auto connection = std::unique_ptr<AMQP::TcpConnection>(new AMQP::TcpConnection(handler.get(), to_address(address)));
+
+        if (connection == nullptr) {
+          return capy::make_unexpected(
+                  capy::Error(BrokerError::MEMORY,
+                              error_string("Connection could not be created because memory error..")));
+        }
+
+        auto impl = std::shared_ptr<BrokerImpl>(new BrokerImpl());
+
+        impl->exchange_name = exchange_name;
+        impl->loop_ = loop;
+        impl->handler_ = std::move(handler);
+        impl->connection_ = std::move(connection);
+
+        std::thread thread_loop([&impl] {
+            uv_run(impl->loop_.get(), UV_RUN_DEFAULT);
+        });
+
+        thread_loop.detach();
+
+        AMQP::TcpChannel channel(impl->connection_.get());
+
+        std::promise<std::string> error_message;
+
+        channel
+
+                .declareExchange(exchange_name, AMQP::topic, AMQP::durable)
+
+                .onSuccess([&error_message]{
+                    error_message.set_value("");
+                })
+
+                .onError([&error_message](const char *message){
+                    error_message.set_value(message);
+                });
+
+        auto error = error_message.get_future().get();
+
+        if(!error.empty()) {
+          return capy::make_unexpected(
+                  capy::Error(BrokerError::EXCHANGE_DECLARATION,
+                              error_string("Connection has been closed: %s", error.c_str())));
+        }
+
+        return Broker(impl);
       }
-
-      if (amqp_socket_open(producer_socket, address.get_hostname().c_str(), static_cast<int>(address.get_port()))) {
-        amqp_destroy_connection(producer_conn);
-        return capy::make_unexpected(capy::Error(BrokerError::CONNECTION,
-                                                 error_string("Tcp socket could not be opened for: %s:%i",
-                                                              address.get_hostname().c_str(),
-                                                              address.get_port())));
+      catch (std::exception& e) {
+        return capy::make_unexpected(
+                capy::Error(BrokerError::CONNECTION,
+                            error_string(e.what())));
       }
-
-      amqp_rpc_reply_t ret = amqp_login(producer_conn, address.get_vhost().c_str(),
-                                        AMQP_DEFAULT_MAX_CHANNELS,
-                                        AMQP_DEFAULT_FRAME_SIZE,
-                                        0,
-                                        AMQP_SASL_METHOD_PLAIN,
-                                        address.get_login().get_username().c_str(),
-                                        address.get_login().get_password().c_str());
-
-
-      std::string error_message;
-
-      if (die_on_amqp_error(ret, "Producer login", error_message)) {
-        amqp_connection_close(producer_conn, AMQP_REPLY_SUCCESS);
-        amqp_destroy_connection(producer_conn);
-        return capy::make_unexpected(capy::Error(BrokerError::LOGIN, error_message));
+      catch (...) {
+        return capy::make_unexpected(
+                capy::Error(BrokerError::CONNECTION,
+                            error_string("Unknown error")));
       }
-
-      amqp_channel_open(producer_conn, channel_id);
-
-      if (die_on_amqp_error(amqp_get_rpc_reply(producer_conn), "Opening producer channel", error_message)) {
-        amqp_connection_close(producer_conn, AMQP_REPLY_SUCCESS);
-        amqp_destroy_connection(producer_conn);
-        return capy::make_unexpected(capy::Error(BrokerError::CHANNEL, error_message));
-      }
-
-      auto impl = std::shared_ptr<BrokerImpl>(new BrokerImpl(channel_id));
-
-      amqp_basic_qos(producer_conn,channel_id,0,1,0);
-
-      impl->producer_conn = producer_conn;
-      impl->exchange_name = exchange_name;
-
-      return Broker(impl);
 
     }
+
+//    Result<Broker> Broker::Bind(const capy::amqp::Address& address, const std::string& exchange_name) {
+//
+//      amqp_channel_t channel_id = 1;
+//
+//      amqp_connection_state_t producer_conn = amqp_new_connection();
+//      amqp_socket_t *producer_socket = amqp_tcp_socket_new(producer_conn);
+//
+//      if (!producer_socket) {
+//        return capy::make_unexpected(capy::Error(BrokerError::CONNECTION,
+//                                                 error_string("Tcp socket could not be created...")));
+//      }
+//
+//      if (amqp_socket_open(producer_socket, address.get_hostname().c_str(), static_cast<int>(address.get_port()))) {
+//        amqp_destroy_connection(producer_conn);
+//        return capy::make_unexpected(capy::Error(BrokerError::CONNECTION,
+//                                                 error_string("Tcp socket could not be opened for: %s:%i",
+//                                                              address.get_hostname().c_str(),
+//                                                              address.get_port())));
+//      }
+//
+//      amqp_rpc_reply_t ret = amqp_login(producer_conn, address.get_vhost().c_str(),
+//                                        AMQP_DEFAULT_MAX_CHANNELS,
+//                                        AMQP_DEFAULT_FRAME_SIZE,
+//                                        0,
+//                                        AMQP_SASL_METHOD_PLAIN,
+//                                        address.get_login().get_username().c_str(),
+//                                        address.get_login().get_password().c_str());
+//
+//
+//      std::string error_message;
+//
+//      if (die_on_amqp_error(ret, "Producer login", error_message)) {
+//        amqp_connection_close(producer_conn, AMQP_REPLY_SUCCESS);
+//        amqp_destroy_connection(producer_conn);
+//        return capy::make_unexpected(capy::Error(BrokerError::LOGIN, error_message));
+//      }
+//
+//      amqp_channel_open(producer_conn, channel_id);
+//
+//      if (die_on_amqp_error(amqp_get_rpc_reply(producer_conn), "Opening producer channel", error_message)) {
+//        amqp_connection_close(producer_conn, AMQP_REPLY_SUCCESS);
+//        amqp_destroy_connection(producer_conn);
+//        return capy::make_unexpected(capy::Error(BrokerError::CHANNEL, error_message));
+//      }
+//
+//      auto impl = std::shared_ptr<BrokerImpl>(new BrokerImpl(channel_id));
+//
+//      amqp_basic_qos(producer_conn,channel_id,0,1,0);
+//
+//      impl->producer_conn = producer_conn;
+//      impl->exchange_name = exchange_name;
+//
+//      return Broker(impl);
+//
+//    }
 
     //
     // Broker constructors
@@ -439,18 +194,20 @@ namespace capy::amqp {
     // fetch
     //
     Error Broker::fetch(const capy::json& message, const std::string& routing_key, const FetchHandler& on_data) {
-      std::string correlation_id(std::to_string(BrokerImpl::correlation_id++).c_str());
-      return impl_->publish(correlation_id, message, impl_->exchange_name, routing_key, [&](const Result<json> &message){
-          try {
-            on_data(message);
-          }
-          catch (json::exception &exception) {
-            throw_abort(exception.what());
-          }
-          catch (...) {
-            throw_abort("Unexpected excaption...");
-          }
-      });
+      impl_->fetch_message(message, routing_key, on_data);
+      return capy::Error(CommonError::OK);
+//      std::string correlation_id(std::to_string(BrokerImpl::correlation_id++).c_str());
+//      return impl_->publish(correlation_id, message, impl_->exchange_name, routing_key, [&](const Result<json> &message){
+//          try {
+//            on_data(message);
+//          }
+//          catch (json::exception &exception) {
+//            throw_abort(exception.what());
+//          }
+//          catch (...) {
+//            throw_abort("Unexpected excaption...");
+//          }
+//      });
     }
 
     //
@@ -460,7 +217,8 @@ namespace capy::amqp {
             const std::string& queue,
             const std::vector<std::string>& routing_keys,
             const capy::amqp::ListenHandler& on_data) {
-      return impl_->listen(queue, routing_keys, on_data);
+      //return impl_->listen(queue, routing_keys, on_data);
+      return impl_->listen_messages(queue,routing_keys,on_data);
     }
 
     //

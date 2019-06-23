@@ -18,6 +18,9 @@ namespace capy {
 
     using namespace nonstd;
 
+    /***
+     * Main universal intercommunication structure
+     */
     typedef nlohmann::json json;
 
     /***
@@ -25,12 +28,37 @@ namespace capy {
      */
     struct Error {
 
+        /***
+         * Create Error object from error condition or exception message string
+         * @param code error condition code
+         * @param message exception string
+         */
         Error(const std::error_condition code, const std::optional<std::string>& message = std::nullopt);
+
+        /***
+         * Get the error value
+         * @return code
+         */
         const int value() const;
+
+        /***
+         * Get the error message string
+         * @return error message
+         */
         const std::string message() const;
 
+        /***
+         * Error is negative or error can be skipped
+         * @return true if error occurred
+         */
         operator bool() const;
 
+        /***
+         * Error standard streaming
+         * @param os
+         * @param error
+         * @return
+         */
         friend std::ostream& operator<<(std::ostream& os, const Error& error) {
           os << error.value() << "/" << error.message();
           return os;
@@ -79,7 +107,7 @@ namespace capy {
     */
     const std::string error_string(const char* format, ...);
 
-    static inline void _throw_abort(const char* file, int line, const char* msg)
+    static inline void _throw_abort(const char* file, int line, const std::string& msg)
     {
       std::cerr << "Capy logic error: assert failed:\t" << msg << "\n"
                 << "Capy logic error: source:\t\t" << file << ", line " << line << "\n";

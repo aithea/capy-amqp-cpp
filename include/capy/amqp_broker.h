@@ -64,12 +64,17 @@ namespace capy::amqp {
          * Connection error
          */
         CONNECTION = EXTEND_ENUM(CommonError, LAST),
+        MEMORY,
         LOGIN,
-        CHANNEL,
+        CHANNEL_READY,
+        CHANNEL_MESSAGE,
         PUBLISH,
+        EXCHANGE_DECLARATION,
         QUEUE_DECLARATION,
         QUEUE_BINDING,
         QUEUE_CONSUMING,
+        LISTENER_CONFLICT,
+        EMPTY_REPLAY,
         DATA_RESPONSE,
 
         LAST
