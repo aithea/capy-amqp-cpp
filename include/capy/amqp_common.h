@@ -35,6 +35,10 @@ namespace capy {
          */
         Error(const std::error_condition code, const std::optional<std::string>& message = std::nullopt);
 
+        Error(const Error&) = default;
+        Error(Error &&) = default;
+        Error &operator=(const Error&)  = default;
+
         /***
          * Get the error value
          * @return code
@@ -125,6 +129,39 @@ namespace capy {
 
 namespace capy::amqp {
 
+    struct Rpc {
+        std::string routing_key;
+        capy::json  message;
+        Rpc() = default;
+        Rpc(const Rpc&) = default;
+        Rpc(const std::string& akey, const capy::json& aMessage): routing_key(akey), message(aMessage){};
+    };
+
+    /**
+     * Expected fetching response data type
+     */
+    typedef Result<json> Response;
+
+    /**
+     * Expected listening request data type. Contains json-like structure of action key and routing key of queue
+     */
+    typedef Result<Rpc> Request;
+
+    /**
+     * Replay data type
+     */
+    typedef Result<json> Replay;
+
+    /***
+     * Fetcher handling request
+     */
+    typedef std::function<void(const Response& request)> FetchHandler;
+
+    /***
+     * Listener handling action request and replies
+     */
+    typedef std::function<void(const Request& request, Replay& replay)> ListenHandler;
+
     /***
      * Common error codes
      */
@@ -133,32 +170,32 @@ namespace capy::amqp {
         /***
          * Skip the error
          */
-        OK = 0,
+                OK = 0,
 
         /***
          * not supported error
          */
-        NOT_SUPPORTED = 300,
+                NOT_SUPPORTED = 300,
 
         /***
          * unknown error
          */
-        UNKNOWN,
+                UNKNOWN,
 
         /***
          * Resource not found
          */
-        NOT_FOUND,
+                NOT_FOUND,
 
         /***
          * Collection range excaption
          */
-        OUT_OF_RANGE,
+                OUT_OF_RANGE,
 
         /**
          * the last error code
          */
-        LAST
+                LAST
     };
 
     /***

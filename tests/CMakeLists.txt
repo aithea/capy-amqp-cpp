@@ -22,6 +22,8 @@ link_directories(
 add_subdirectory(initial)
 add_subdirectory(address)
 add_subdirectory(broker)
+add_subdirectory(promise)
+add_subdirectory(deferred)
 #add_subdirectory(amqp-cpp-async)
 add_subdirectory(async-rpc-server)
 add_subdirectory(async-rpc-client)

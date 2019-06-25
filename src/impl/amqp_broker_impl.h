@@ -5,8 +5,8 @@
 #pragma once
 
 #include "amqp_handler_impl.h"
-
 #include "capy/amqp_broker.h"
+
 #include "amqp.h"
 #include "amqp_tcp_socket.h"
 
@@ -15,6 +15,7 @@
 #include <atomic>
 #include <thread>
 #include <future>
+#include <capy/amqp_deferred.h>
 
 namespace capy::amqp {
 
@@ -24,6 +25,8 @@ namespace capy::amqp {
     class BrokerImpl {
 
     public:
+        std::mutex mutex;
+
         std::shared_ptr<uv_loop_t> loop_;
         std::shared_ptr<ConnectionHandler> handler_;
         std::unique_ptr<AMQP::TcpConnection> connection_;
@@ -148,8 +151,12 @@ namespace capy::amqp {
 
         }
 
-        void listen_messages(const std::string &queue, const std::vector<std::string> &keys,
-                             const ListenHandler &on_data);
+//        void listen_messages(const std::string &queue, const std::vector<std::string> &keys,
+//                             const ListenHandler &on_data);
+
+        DeferredListen& listen_messages(const std::string &queue, const std::vector<std::string> &keys);
+                             //const ListenHandler &on_data);
+
 
         void fetch_message(const json& message, const std::string& routing_key, const FetchHandler& on_data);
 

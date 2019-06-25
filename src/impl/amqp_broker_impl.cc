@@ -3,6 +3,8 @@
 //
 
 #include "amqp_broker_impl.h"
+#include "capy/amqp_common.h"
+
 #include <condition_variable>
 #include <sstream>
 
@@ -12,12 +14,12 @@ namespace capy::amqp {
         typedef AMQP::TcpChannel __TcpChannel;
     public:
         using __TcpChannel::__TcpChannel;
-         ~Channel() override {
+        ~Channel() override {
           std::cout << " ~Channel("<< this->id() << ") .... " << std::endl;
         }
     };
 
-    inline static std::string cretate_unique_id() {
+    inline static std::string create_unique_id() {
       static int n = 1;
       std::ostringstream os;
       os << n++;
@@ -80,9 +82,9 @@ namespace capy::amqp {
         fetch_channel_ = std::unique_ptr<AMQP::TcpChannel>(new AMQP::TcpChannel(connection_.get()));
       }
 
-      fetch_channel_->
+      fetch_channel_
 
-              declareQueue(AMQP::exclusive|AMQP::autodelete)
+              ->declareQueue(AMQP::exclusive|AMQP::autodelete)
 
               .onSuccess([&queue_declaration](const std::string &name, uint32_t messagecount, uint32_t consumercount){
 
@@ -105,13 +107,13 @@ namespace capy::amqp {
       AMQP::Envelope envelope(static_cast<char*>((void *)data.data()), static_cast<uint64_t>(data.size()));
 
       envelope.setDeliveryMode(2);
-      envelope.setCorrelationID(cretate_unique_id());
+      envelope.setCorrelationID(create_unique_id());
       envelope.setReplyTo(queue.value());
 
 
-      fetch_channel_->
+      fetch_channel_
 
-              consume(envelope.replyTo(), AMQP::noack)
+              ->consume(envelope.replyTo(), AMQP::noack)
 
               .onReceived([&on_data](
 
@@ -138,99 +140,90 @@ namespace capy::amqp {
 
       fetch_channel_->startTransaction();
 
-      fetch_channel_->
-              publish(exchange_name, routing_key, envelope, AMQP::autodelete|AMQP::mandatory)
+      fetch_channel_
+
+              ->publish(exchange_name, routing_key, envelope, AMQP::autodelete|AMQP::mandatory)
 
               .onError([&on_data](const char *message) {
                   on_data(capy::make_unexpected(Error(BrokerError::PUBLISH, message)));
               });
 
 
-      fetch_channel_->
-              commitTransaction()
+      fetch_channel_
+
+              ->commitTransaction()
 
               .onError([&on_data](const char *message) {
                   on_data(capy::make_unexpected(Error(BrokerError::PUBLISH, message)));
               });
     }
 
-    void BrokerImpl::listen_messages(const std::string &queue,
-                                     const std::vector<std::string> &keys,
-                                     const capy::amqp::ListenHandler &on_data) {
+    ///
+    /// MARK: - listen
+    ///
+    DeferredListen& BrokerImpl::listen_messages(const std::string &queue,
+                                                const std::vector<std::string> &keys) {
+
+      auto deferred = std::make_shared<capy::amqp::DeferredListen>();
 
       if (listen_channel_ != nullptr) {
-        Result<json> replay;
-        return on_data(
-                capy::make_unexpected(capy::Error(BrokerError::LISTENER_CONFLICT,
-                                                  error_string("Listener channel already used, you must create a new broker..."))),
-                replay);
+        throw_abort("Listener channel already used, you must create a new broker...");
       }
+
+
+
 
       listen_channel_ = std::unique_ptr<AMQP::TcpChannel>(new AMQP::TcpChannel(connection_.get()));
 
-      std::promise<std::string> error_message;
-
-      listen_channel_->
-              onError([&error_message,&on_data](const char *message){
-          try {
-            error_message.set_value(message);
-          }
-          catch (std::exception& e){}
-          Result<json> replay;
-          return on_data(
-                  capy::make_unexpected(capy::Error(BrokerError::CHANNEL_MESSAGE, message)),
-                  replay);
+      listen_channel_->onError([deferred](const char *message) {
+          deferred->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, message));
       });
 
-      listen_channel_->
-              onReady([&error_message]{
-          error_message.set_value("");
+      std::promise<void> on_ready_barrier;
+
+      listen_channel_->onReady([&on_ready_barrier] {
+          on_ready_barrier.set_value();
       });
 
-      auto error = error_message.get_future().get();
-
-      if (!error.empty()) {
-        Result<json> replay;
-        return on_data(
-                capy::make_unexpected(capy::Error(BrokerError::CHANNEL_READY, error)),
-                replay);
-      }
+      on_ready_barrier.get_future().wait();
 
       // create a queue
-      listen_channel_->declareQueue(queue, AMQP::durable)
+      listen_channel_
 
-              .onError([&on_data](const char *message){
+              ->declareQueue(queue, AMQP::durable)
 
-                  Result<json> replay;
-                  return on_data(
-                          capy::make_unexpected(capy::Error(BrokerError::QUEUE_DECLARATION, message)),
-                          replay);
-
+              .onError([deferred](const char *message) {
+                  deferred->report_error(capy::Error(BrokerError::QUEUE_DECLARATION, message));
               });
+
 
       for (auto &routing_key: keys) {
 
-        listen_channel_->bindQueue(exchange_name, queue, routing_key)
+        listen_channel_
 
-                .onError([&on_data, this, routing_key, queue](const char *message) {
-                    Result<json> replay;
-                    return on_data(
-                            capy::make_unexpected(capy::Error(BrokerError::QUEUE_BINDING,
-                                                              error_string("%s: %s:%s <- %s",message, exchange_name.c_str(), queue.c_str(), routing_key.c_str()))),
-                            replay);
+                ->bindQueue(exchange_name, queue, routing_key)
+
+                .onError([&deferred, this, routing_key, queue](const char *message) {
+
+                    deferred->
+                            report_error(
+                            capy::Error(BrokerError::QUEUE_BINDING,
+                                        error_string("%s: %s:%s <- %s", message, exchange_name.c_str())));
                 });
-
       }
 
+      listen_channel_
 
-      listen_channel_->consume(queue)
+              ->consume(queue)
 
-              .onReceived([this,&on_data,&queue](
+              .onReceived([this, deferred, &queue](
                       const AMQP::Message &message,
                       uint64_t deliveryTag,
                       bool redelivered) {
 
+                  mutex.lock();
                   listen_channel_->ack(deliveryTag);
+                  mutex.unlock();
 
                   std::vector<std::uint8_t> buffer(
                           static_cast<std::uint8_t *>((void*)message.body()),
@@ -243,58 +236,49 @@ namespace capy::amqp {
 
                     capy::json received = json::from_msgpack(buffer);
 
-                    std::promise<Result<capy::json>> replay_barrier;
-
-                    capy::amqp::Task::Instance().async([
+                    capy::amqp::Task::Instance().async([ this,
+                                                               deferred,
                                                                replay_to,
-                                                               &received,
-                                                               &on_data,
-                                                               &replay_barrier
+                                                               received,
+                                                               cid
                                                        ] {
-
 
                         Result<capy::json> replay;
 
-                        on_data(Rpc(replay_to, received), replay);
+                        deferred->report_data(Rpc(replay_to,received),replay);
 
-                        replay_barrier.set_value(replay);
+                        if (!replay) {
+                          deferred->report_error(replay.error());
+                          return;
+                        }
+
+                        if (replay->empty()) {
+                          deferred->report_error(capy::Error(BrokerError::EMPTY_REPLAY, "replay is empty"));
+                        }
+
+                        auto data = json::to_msgpack(replay.value());
+
+                        AMQP::Envelope envelope(static_cast<char *>((void *) data.data()),
+                                                static_cast<uint64_t>(data.size()));
+
+                        envelope.setCorrelationID(cid);
+                        envelope.setExpiration("60000");
+
+                          mutex.lock();
+
+                          listen_channel_->startTransaction();
+
+                          listen_channel_->publish("", replay_to, envelope);
+
+                          listen_channel_->commitTransaction()
+
+                                  .onError([deferred](const char *message) {
+                                      deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
+                                  });
+
+                          mutex.unlock();
 
                     });
-
-                    auto replay = replay_barrier.get_future().get();
-
-                    if (!replay) {
-                      return;
-                    }
-
-                    if (replay->empty()) {
-                      Result<json> replay;
-                      return on_data(
-                              capy::make_unexpected(capy::Error(BrokerError::EMPTY_REPLAY, "replay is empty")),
-                              replay);
-                    }
-
-                    auto data = json::to_msgpack(replay.value());
-
-                    AMQP::Envelope envelope(static_cast<char*>((void *)data.data()), static_cast<uint64_t>(data.size()));
-
-                    envelope.setCorrelationID(cid);
-                    envelope.setExpiration("60000");
-
-                    listen_channel_->startTransaction();
-
-                    listen_channel_->publish("", replay_to, envelope);
-
-                    listen_channel_->commitTransaction()
-
-                            .onError([&on_data](const char *message){
-
-                                Result<json> replay;
-                                return on_data(
-                                        capy::make_unexpected(capy::Error(BrokerError::PUBLISH, message)),
-                                        replay);
-
-                            });
 
                   }
                   catch (json::exception &exception) {
@@ -306,14 +290,11 @@ namespace capy::amqp {
 
               })
 
-              .onError([&on_data](const char *message) {
-
-                  Result<json> replay;
-                  return on_data(
-                          capy::make_unexpected(capy::Error(BrokerError::QUEUE_CONSUMING, message)),
-                          replay);
-
+              .onError([deferred](const char *message) {
+                  deferred->report_error(capy::Error(BrokerError::QUEUE_CONSUMING, message));
               });
+
+      return *deferred;
 
     }
 }

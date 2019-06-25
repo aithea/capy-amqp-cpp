@@ -18,42 +18,9 @@
 #include "capy/amqp_common.h"
 #include "capy/amqp_address.h"
 #include "capy/amqp_expected.h"
+#include "capy/amqp_deferred.h"
 
 namespace capy::amqp {
-
-    struct Rpc {
-        std::string routing_key;
-        capy::json  message;
-        Rpc() = default;
-        Rpc(const Rpc&) = default;
-        Rpc(const std::string& akey, const capy::json& aMessage): routing_key(akey), message(aMessage){};
-    };
-
-    /**
-     * Expected fetching response data type
-     */
-    typedef Result<json> Response;
-
-    /**
-     * Expected listening request data type. Contains json-like structure of action key and routing key of queue
-     */
-    typedef Result<Rpc> Request;
-
-    /**
-     * Replay data type
-     */
-    typedef Result<json> Replay;
-
-
-    /***
-     * Fetcher handling request
-     */
-    typedef std::function<void(const Response& request)> FetchHandler;
-
-    /***
-     * Listener handling action request and replies
-     */
-    typedef std::function<void(const Request& request, Replay& replay)> ListenHandler;
 
     /***
      * AMQP Broker errors
@@ -136,7 +103,8 @@ namespace capy::amqp {
          * @param keys topic keys
          * @param on_data messaging handling
          */
-        void listen(const std::string& queue, const std::vector<std::string>& keys, const ListenHandler& on_data);
+        ///DeferredListen& listen(const std::string& queue, const std::vector<std::string>& keys, const ListenHandler& on_data);
+        DeferredListen& listen(const std::string& queue, const std::vector<std::string>& keys);
 
 
     protected:

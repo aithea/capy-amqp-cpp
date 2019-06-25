@@ -23,22 +23,39 @@ TEST(Exchange, ListenTest) {
         std::cout << "listener broker created ... " << std::endl;
 
         int counter = 0;
-        broker->listen(
-                "capy-test",
-                {"something.*"},
-                [&](const capy::amqp::Request& request, capy::amqp::Replay& replay)
-                {
 
-                    if (!request) {
-                      std::cerr << " listen error: " << request.error().value() << "/" << request.error().message() << std::endl;
-                    }
-                    else {
-                      std::cout << " listen["<< counter << "] received ["<< request->routing_key << "]: " << request->message.dump(4) << std::endl;
-                      replay.value() = {"reply", true, counter};
-                      counter++;
-                    }
+        broker->listen("capy-test", {"something.*"})
+
+                .on_data([](const capy::amqp::Request &request, capy::amqp::Replay &replay) {
+
+
+                })
+
+                .on_success([] {
+
+
+                })
+
+                .on_error([](const capy::Error &e) {
                 });
-      };
+      }
+
+//        broker->listen(
+//                "capy-test",
+//                {"something.*"},
+//                [&](const capy::amqp::Request& request, capy::amqp::Replay& replay)
+//                {
+//
+//                    if (!request) {
+//                      std::cerr << " listen error: " << request.error().value() << "/" << request.error().message() << std::endl;
+//                    }
+//                    else {
+//                      std::cout << " listen["<< counter << "] received ["<< request->routing_key << "]: " << request->message.dump(4) << std::endl;
+//                      replay.value() = {"reply", true, counter};
+//                      counter++;
+//                    }
+//                });
+//      };
 
   });
 

@@ -213,12 +213,13 @@ namespace capy::amqp {
     //
     // listen
     //
-    void Broker::listen(
+    DeferredListen& Broker::listen(
             const std::string& queue,
-            const std::vector<std::string>& routing_keys,
-            const capy::amqp::ListenHandler& on_data) {
+            const std::vector<std::string>& routing_keys/*,
+            const capy::amqp::ListenHandler& on_data*/) {
       //return impl_->listen(queue, routing_keys, on_data);
-      return impl_->listen_messages(queue,routing_keys,on_data);
+      //return impl_->listen_messages(queue,routing_keys,on_data);
+      return impl_->listen_messages(queue,routing_keys);
     }
 
     //

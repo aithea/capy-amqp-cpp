@@ -55,17 +55,15 @@ TEST(Exchange, AsyncListenTest) {
 
   int counter = 0;
 
-  broker->listen(
-          "capy-test",
-          {"echo.ping"},
-          [&](const capy::amqp::Request& request, capy::amqp::Replay& replay)
-          {
+  broker->listen("capy-test", {"echo.ping"})
+
+          .on_data([&counter](const capy::amqp::Request &request, capy::amqp::Replay &replay) {
 
               if (!request) {
                 std::cerr << " listen error: " << request.error().value() << "/" << request.error().message() << std::endl;
               }
               else {
-                auto r = (rand() % 100) + 1;
+                auto r = (rand() % 1000) + 1;
 
                 std::cout << " listen["<< counter << "] received ["<< request->routing_key << "]: " << request->message.dump(4) << std::endl;
                 replay.value() = {"reply", true, counter, r};
@@ -76,6 +74,19 @@ TEST(Exchange, AsyncListenTest) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(r));
 
               }
+
+          })
+
+          .on_success([] {
+
+              std::cout << "Deferred: on_success... " << std::endl;
+
+          })
+
+          .on_error([](const capy::Error &error) {
+
+              std::cout << "Deferred: on_error: " << error.message() << std::endl;
+
           });
 
 
