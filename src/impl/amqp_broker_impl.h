@@ -43,7 +43,7 @@ namespace capy::amqp {
 
         DeferredFetch& fetch_message(const json& message, const std::string& routing_key);
 
-        Error publis_message(const json& message, const std::string& routing_key);
+        Error publish_message(const json &message, const std::string &routing_key);
 
     };
 }

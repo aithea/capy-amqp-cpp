@@ -8,7 +8,7 @@
 #include <ctime>
 #include <cstdlib>
 
-#define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
+#define CAPY_RPC_TEST_EMULATE_COMPUTATION 1
 
 TEST(Exchange, AsyncListenTest) {
 
@@ -47,7 +47,7 @@ TEST(Exchange, AsyncListenTest) {
               else {
 
 
-                auto r = (rand() % 1000) + 1;
+                auto r = (rand() % 100) + 1;
 
                 std::cout << " listen["<< counter << "] received ["<< request->routing_key << "]: " << request->message.dump(4) << std::endl;
 

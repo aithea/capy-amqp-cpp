@@ -65,7 +65,7 @@ namespace capy::amqp {
       thread_loop.detach();
     }
 
-    Error BrokerImpl::publis_message(const capy::json &message, const std::string &routing_key) {
+    Error BrokerImpl::publish_message(const capy::json &message, const std::string &routing_key) {
       std::promise<Result<std::string>> queue_declaration;
 
       auto data = json::to_msgpack(message);
@@ -100,94 +100,96 @@ namespace capy::amqp {
       return Error(amqp::CommonError::OK);
     }
 
+
     DeferredFetch& BrokerImpl::fetch_message(
             const capy::json &message,
             const std::string &routing_key) {
 
       auto deferred = std::make_shared<capy::amqp::DeferredFetch>();
 
-      std::promise<Result<std::string>> queue_declaration;
+      std::lock_guard lock(mutex_);
 
-      if (fetch_channel_== nullptr) {
+      if (fetch_channel_ == nullptr) {
         fetch_channel_ = std::unique_ptr<AMQP::TcpChannel>(new AMQP::TcpChannel(connection_.get()));
       }
 
       fetch_channel_
 
-              ->declareQueue(AMQP::exclusive|AMQP::autodelete)
+              ->declareQueue(AMQP::exclusive | AMQP::autodelete)
 
-              .onSuccess([&queue_declaration](const std::string &name, uint32_t messagecount, uint32_t consumercount){
-                  queue_declaration.set_value(name);
-              })
+              .onSuccess(
+                      [this,
+                              message,
+                              deferred,
+                              routing_key]
 
-              .onError([&queue_declaration](const char *message) {
-                  queue_declaration.set_value(capy::make_unexpected(Error(BrokerError::QUEUE_DECLARATION,message)));
-              });
+                              (const std::string &name, uint32_t messagecount, uint32_t consumercount) {
 
-      auto queue = queue_declaration.get_future().get();
+                          auto data = json::to_msgpack(message);
 
-      if (!queue){
-        capy::amqp::Task::Instance().async([queue, deferred]{
-            deferred->report_error(queue.error());
-        });
-        return *deferred;
-      }
+                          AMQP::Envelope envelope(static_cast<char*>((void *)data.data()), static_cast<uint64_t>(data.size()));
 
-      auto data = json::to_msgpack(message);
+                          envelope.setDeliveryMode(2);
+                          envelope.setCorrelationID(create_unique_id());
+                          envelope.setReplyTo(name);
 
-      AMQP::Envelope envelope(static_cast<char*>((void *)data.data()), static_cast<uint64_t>(data.size()));
+                          std::lock_guard lock(mutex_);
 
-      envelope.setDeliveryMode(2);
-      envelope.setCorrelationID(create_unique_id());
-      envelope.setReplyTo(queue.value());
+                          fetch_channel_
 
-      fetch_channel_
+                                  ->consume(envelope.replyTo(), AMQP::noack)
 
-              ->consume(envelope.replyTo(), AMQP::noack)
+                                  .onReceived([deferred](
 
-              .onReceived([deferred](
+                                          const AMQP::Message &message,
+                                          uint64_t deliveryTag,
+                                          bool redelivered) {
 
-                      const AMQP::Message &message,
-                      uint64_t deliveryTag,
-                      bool redelivered) {
+                                      std::vector<std::uint8_t> buffer(
+                                              static_cast<std::uint8_t *>((void*)message.body()),
+                                              static_cast<std::uint8_t *>((void*)message.body()) + message.bodySize());
 
-                  std::vector<std::uint8_t> buffer(
-                          static_cast<std::uint8_t *>((void*)message.body()),
-                          static_cast<std::uint8_t *>((void*)message.body()) + message.bodySize());
+                                      capy::json received = json::from_msgpack(buffer);
 
-                  capy::json received = json::from_msgpack(buffer);
+                                      capy::amqp::Task::Instance().async([received, deferred]{
+                                          deferred->report_data(received);
+                                      });
 
-                  capy::amqp::Task::Instance().async([received, deferred]{
-                      deferred->report_data(received);
-                  });
+                                  })
 
-              })
+                                  .onError([deferred](const char *message) {
+
+                                      deferred->report_error(Error(BrokerError::DATA_RESPONSE, message));
+
+                                  });
+
+
+                          fetch_channel_
+                                  ->startTransaction()
+                                  .onError([deferred](const char *message) {
+                                      deferred->report_error(Error(BrokerError::PUBLISH, message));
+                                  });
+
+                          fetch_channel_
+                                  ->publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory)
+                                  .onError([deferred](const char *message) {
+                                      deferred->report_error(Error(BrokerError::PUBLISH, message));
+                                  });
+
+
+                          fetch_channel_
+                                  ->commitTransaction()
+                                  .onError([deferred](const char *message) {
+                                      deferred->report_error(Error(BrokerError::PUBLISH, message));
+                                  });
+
+
+                      })
 
               .onError([deferred](const char *message) {
-
-                  deferred->report_error(Error(BrokerError::DATA_RESPONSE, message));
-
+                  deferred->report_error(Error(BrokerError::QUEUE_DECLARATION, message));
               });
 
-
-      fetch_channel_
-              ->startTransaction()
-              .onError([deferred](const char *message) {
-                  deferred->report_error(Error(BrokerError::PUBLISH, message));
-              });
-
-      fetch_channel_
-              ->publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory)
-              .onError([deferred](const char *message) {
-                  deferred->report_error(Error(BrokerError::PUBLISH, message));
-              });
-
-
-      fetch_channel_
-              ->commitTransaction()
-              .onError([deferred](const char *message) {
-                  deferred->report_error(Error(BrokerError::PUBLISH, message));
-              });
 
       return *deferred;
     }
@@ -296,8 +298,11 @@ namespace capy::amqp {
 
                           mutex_.lock();
                           listen_channel_->ack(deliveryTag);
-                          auto channel = Channel(connection_.get());
                           mutex_.unlock();
+
+                          //mutex_.lock();
+                          auto channel = Channel(connection_.get());
+                          //mutex_.unlock();
 
                           channel.startTransaction()
                                   .onError([deferred](const char *message) {

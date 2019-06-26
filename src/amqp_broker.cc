@@ -153,7 +153,7 @@ namespace capy::amqp {
     // publish
     //
     Error Broker::publish(const capy::json& message, const std::string& routing_key) {
-      return impl_->publis_message(message,routing_key);
+      return impl_->publish_message(message, routing_key);
     }
 
     ///

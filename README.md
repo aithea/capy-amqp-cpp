@@ -57,13 +57,6 @@ $ cd capy-dispatchq; mkdir build; cd build; cmake ..
 $ make; sudo make install
 ```
 
-#### Install rabbitmq-c:
-```
-$ git clone https://github.com/alanxz/rabbitmq-c
-$ cd rabbitmq-c; mkdir build; cd build; cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF -DBUILD_STATIC_LIBS=ON -DBUILD_TESTS=OFF -DBUILD_TOOLS_DOCS=OFF -DENABLE_SSL_SUPPORT=OFF ..
-$ make; sudo make install
-```
-
 #### Install AMQP-CPP:
 ```
 $ git clone https://github.com/dnevera/AMQP-CPP

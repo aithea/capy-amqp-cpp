@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 #include "capy/amqp.h"
 
-#define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
+#define CAPY_RPC_TEST_EMULATE_COMPUTATION 1
 
 TEST(Exchange, AsyncFetchTest) {
   auto address = capy::amqp::Address::From("amqp://guest:guest@localhost:5672/");
@@ -29,7 +29,7 @@ TEST(Exchange, AsyncFetchTest) {
     return;
   }
 
-  int max_count = 300000;
+  int max_count = 3000;
 
   for (int i = 0; i < max_count ; ++i) {
 
@@ -41,11 +41,11 @@ TEST(Exchange, AsyncFetchTest) {
 
     std::string key = "echo.ping";
 
-    std::cout << " fetch: " << key << std::endl;
+    std::cout << " fetch["<<i<<"]: " << key << std::endl;
 
     broker->fetch(action, key)
 
-            .on_data([i](const capy::amqp::Response &response){
+            .on_data([i, max_count](const capy::amqp::Response &response){
               if (response){
                 std::cout << "fetch["<< i << "] received: " <<  response->dump(4) << std::endl;
               }
@@ -54,22 +54,32 @@ TEST(Exchange, AsyncFetchTest) {
                           << std::endl;
               }
 
+
+                if (max_count - 1 == i) {
+                  std::cout << " ... exiting ... " << std::endl;
+                  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                  capy::dispatchq::main::loop::exit();
+                }
+
             })
 
-            .on_error([](const capy::Error& error){
+            .on_error([i,max_count](const capy::Error& error){
                 std::cerr << "amqp broker fetch receiving error: " << error.value() << " / " << error.message()
                           << std::endl;
 
+                if (max_count - 1 == i) {
+                  std::cout << " ... exiting ... " << std::endl;
+                  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                  capy::dispatchq::main::loop::exit();
+                }
             });
 
-    if (max_count - 1 == i) {
-      ::exit(0);
-    }
-
 #if CAPY_RPC_TEST_EMULATE_COMPUTATION == 1
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    auto r = (rand() % 10) + 1;
+    std::this_thread::sleep_for(std::chrono::milliseconds(r));
 #endif
 
   }
 
+  capy::dispatchq::main::loop::run();
 }
