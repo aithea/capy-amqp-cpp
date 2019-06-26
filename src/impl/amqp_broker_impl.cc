@@ -216,8 +216,6 @@ namespace capy::amqp {
                       uint64_t deliveryTag,
                       bool redelivered) {
 
-                  listen_channel_->ack(deliveryTag);
-
                   std::vector<std::uint8_t> buffer(
                           static_cast<std::uint8_t *>((void*)message.body()),
                           static_cast<std::uint8_t *>((void*)message.body()) + message.bodySize());
@@ -233,55 +231,81 @@ namespace capy::amqp {
                                                                deferred,
                                                                replay_to,
                                                                received,
-                                                               cid
+                                                               cid,
+                                                               deliveryTag
                                                        ] {
 
-                        Result<capy::json> replay;
-                        capy::json error_json;
+                        try {
 
-                        deferred->report_data(Rpc(replay_to,received),replay);
+                          Result<capy::json> replay;
+                          capy::json error_json;
 
-                        if (!replay) {
-                          error_json = {"error",{{"code",replay.error().value()}, {"message",replay.error().message()}}};
+                          deferred->report_data(Rpc(replay_to, received), replay);
+
+                          if (!replay) {
+                            error_json = {"error",
+                                          {{"code", replay.error().value()}, {"message", replay.error().message()}}};
+                          } else if (replay->empty()) {
+                            error_json = {"error",
+                                          {{"code", BrokerError::EMPTY_REPLAY}, {"message", "worker replay is empty"}}};
+                          }
+
+                          auto data = json::to_msgpack(error_json.empty() ? replay.value() : error_json);
+
+                          AMQP::Envelope envelope(static_cast<char *>((void *) data.data()),
+                                                  static_cast<uint64_t>(data.size()));
+
+                          envelope.setCorrelationID(cid);
+                          envelope.setExpiration("60000");
+
+                          mutex.lock();
+                          listen_channel_->ack(deliveryTag);
+                          auto channel = Channel(connection_.get());
+                          mutex.unlock();
+
+                          channel.startTransaction()
+                                  .onError([deferred](const char *message) {
+                                      deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
+                                  });
+
+                          channel.publish("", replay_to, envelope)
+                                  .onError([deferred](const char *message) {
+                                      deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
+                                  });
+
+                          channel.commitTransaction()
+                                  .onError([deferred](const char *message) {
+                                      deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
+                                  });
+
                         }
-                        else if (replay->empty()) {
-                          error_json = {"error",{{"code",BrokerError::EMPTY_REPLAY}, {"message","worker replay is empty"}}};
+
+                        catch (json::exception &exception) {
+                          ///
+                          /// Some programmatic exception is not processing properly
+                          ///
+                          mutex.lock();
+                          listen_channel_->ack(deliveryTag);
+                          mutex.unlock();
+                          throw_abort(exception.what());
                         }
-
-                        auto data = json::to_msgpack(error_json.empty() ? replay.value() : error_json);
-
-                        AMQP::Envelope envelope(static_cast<char *>((void *) data.data()),
-                                                static_cast<uint64_t>(data.size()));
-
-                        envelope.setCorrelationID(cid);
-                        envelope.setExpiration("60000");
-
-                        mutex.lock();
-                        auto channel = Channel(connection_.get());
-                        mutex.unlock();
-
-                        channel.startTransaction()
-                                .onError([deferred](const char *message) {
-                                    deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
-                                });
-
-                        channel.publish("", replay_to, envelope)
-                                .onError([deferred](const char *message) {
-                                    deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
-                                });
-
-                        channel.commitTransaction()
-                                .onError([deferred](const char *message) {
-                                    deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
-                                });
+                        catch (...) {
+                          mutex.lock();
+                          listen_channel_->ack(deliveryTag);
+                          mutex.unlock();
+                          throw_abort("Unexpected exception...");
+                        }
                     });
 
                   }
+
                   catch (json::exception &exception) {
-                    throw_abort(exception.what());
+                    listen_channel_->ack(deliveryTag);
+                    deferred->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, exception.what()));
                   }
                   catch (...) {
-                    throw_abort("Unexpected exception...");
+                    listen_channel_->ack(deliveryTag);
+                    deferred->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, "Unexpected exception..."));
                   }
 
               })
