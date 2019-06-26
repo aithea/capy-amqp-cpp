@@ -4,28 +4,9 @@
 
 #include "gtest/gtest.h"
 #include "capy/amqp.h"
-#include <uv.h>
-
 
 #include <ctime>
 #include <cstdlib>
-
-void monitor(uv_timer_t *handle){
-  std::cout << "monitor ping ... " << std::endl;
-}
-
-void main_loop() {
-
-  /* Main thread will run default loop */
-  uv_loop_t *main_loop = uv_default_loop();
-
-  uv_timer_t timer_req;
-  uv_timer_init(main_loop, &timer_req);
-  uv_timer_start(&timer_req, monitor, 0, 2000);
-
-  std::cout << "Starting main loop" << std::endl;
-  uv_run(main_loop, UV_RUN_DEFAULT);
-}
 
 
 TEST(Exchange, AsyncListenTest) {
@@ -66,12 +47,28 @@ TEST(Exchange, AsyncListenTest) {
                 auto r = (rand() % 1000) + 1;
 
                 std::cout << " listen["<< counter << "] received ["<< request->routing_key << "]: " << request->message.dump(4) << std::endl;
-                replay.value() = {"reply", true, counter, r};
-                counter++;
 
-                std::cout << " listen replay: " << replay->dump(4)  << std::endl;
+
+                if (counter%4) {
+
+                  replay = capy::make_unexpected(capy::Error(capy::amqp::BrokerError::DATA_RESPONSE,"some error"));
+
+                } else{
+
+                  replay.value() = {"reply", true, counter, r};
+
+                }
+
+                if (!replay) {
+                  std::cout << " listen replay: " << replay.error().message() << std::endl;
+                }
+                else {
+                  std::cout << " listen replay: " << replay.value_or(capy::json({"is empty"})).dump(4) << std::endl;
+                }
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(r));
+
+                counter++;
 
               }
 
@@ -91,8 +88,8 @@ TEST(Exchange, AsyncListenTest) {
 
 
   std::cout << "Start main thread loop " << std::endl;
+
   capy::dispatchq::main::loop::run();
 
-  //main_loop();
 
 }

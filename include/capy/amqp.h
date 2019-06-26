@@ -9,9 +9,7 @@
 #include "capy/amqp_address.h"
 #include "capy/amqp_broker.h"
 #include "capy/amqp_deferred.h"
-
 #include "capy/dispatchq.h"
-
 #include "dotenv/dotenv.h"
 
 namespace capy {

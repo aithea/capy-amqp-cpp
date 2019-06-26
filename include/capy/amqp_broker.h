@@ -103,7 +103,6 @@ namespace capy::amqp {
          * @param keys topic keys
          * @param on_data messaging handling
          */
-        ///DeferredListen& listen(const std::string& queue, const std::vector<std::string>& keys, const ListenHandler& on_data);
         DeferredListen& listen(const std::string& queue, const std::vector<std::string>& keys);
 
 

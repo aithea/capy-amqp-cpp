@@ -82,21 +82,25 @@ namespace capy::amqp {
         virtual ~Deferred() {
           if (error_ && error_handler_) error_handler_.value()(error_);
           if (finalize_handler_) finalize_handler_.value()();
-          data_handler_.reset();
-          success_handler_.reset();
-          error_handler_.reset();
-          finalize_handler_.reset();
+          reset();
         }
 
     protected:
-        std::optional<DataHandler> data_handler_ = std::nullopt;
-        std::optional<SuccessHandler> success_handler_ = std::nullopt;
-        std::optional<ErrorHandler> error_handler_ = std::nullopt;
+        std::optional<DataHandler>     data_handler_     = std::nullopt;
+        std::optional<SuccessHandler>  success_handler_  = std::nullopt;
+        std::optional<ErrorHandler>    error_handler_    = std::nullopt;
         std::optional<FinalizeHandler> finalize_handler_ = std::nullopt;
 
     private:
         Error error_;
         bool failed_;
+
+        void reset(){
+          data_handler_.reset();
+          success_handler_.reset();
+          error_handler_.reset();
+          finalize_handler_.reset();
+        }
     };
 
 

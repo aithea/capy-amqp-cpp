@@ -14,9 +14,7 @@ namespace capy::amqp {
         typedef AMQP::TcpChannel __TcpChannel;
     public:
         using __TcpChannel::__TcpChannel;
-        ~Channel() override {
-          std::cout << " ~Channel("<< this->id() << ") .... " << std::endl;
-        }
+        virtual ~Channel() override {}
     };
 
     inline static std::string create_unique_id() {
@@ -170,9 +168,6 @@ namespace capy::amqp {
         throw_abort("Listener channel already used, you must create a new broker...");
       }
 
-
-
-
       listen_channel_ = std::unique_ptr<AMQP::TcpChannel>(new AMQP::TcpChannel(connection_.get()));
 
       listen_channel_->onError([deferred](const char *message) {
@@ -221,9 +216,7 @@ namespace capy::amqp {
                       uint64_t deliveryTag,
                       bool redelivered) {
 
-                  mutex.lock();
                   listen_channel_->ack(deliveryTag);
-                  mutex.unlock();
 
                   std::vector<std::uint8_t> buffer(
                           static_cast<std::uint8_t *>((void*)message.body()),
@@ -244,19 +237,18 @@ namespace capy::amqp {
                                                        ] {
 
                         Result<capy::json> replay;
+                        capy::json error_json;
 
                         deferred->report_data(Rpc(replay_to,received),replay);
 
                         if (!replay) {
-                          deferred->report_error(replay.error());
-                          return;
+                          error_json = {"error",{{"code",replay.error().value()}, {"message",replay.error().message()}}};
+                        }
+                        else if (replay->empty()) {
+                          error_json = {"error",{{"code",BrokerError::EMPTY_REPLAY}, {"message","worker replay is empty"}}};
                         }
 
-                        if (replay->empty()) {
-                          deferred->report_error(capy::Error(BrokerError::EMPTY_REPLAY, "replay is empty"));
-                        }
-
-                        auto data = json::to_msgpack(replay.value());
+                        auto data = json::to_msgpack(error_json.empty() ? replay.value() : error_json);
 
                         AMQP::Envelope envelope(static_cast<char *>((void *) data.data()),
                                                 static_cast<uint64_t>(data.size()));
@@ -264,20 +256,24 @@ namespace capy::amqp {
                         envelope.setCorrelationID(cid);
                         envelope.setExpiration("60000");
 
-                          mutex.lock();
+                        mutex.lock();
+                        auto channel = Channel(connection_.get());
+                        mutex.unlock();
 
-                          listen_channel_->startTransaction();
+                        channel.startTransaction()
+                                .onError([deferred](const char *message) {
+                                    deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
+                                });
 
-                          listen_channel_->publish("", replay_to, envelope);
+                        channel.publish("", replay_to, envelope)
+                                .onError([deferred](const char *message) {
+                                    deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
+                                });
 
-                          listen_channel_->commitTransaction()
-
-                                  .onError([deferred](const char *message) {
-                                      deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
-                                  });
-
-                          mutex.unlock();
-
+                        channel.commitTransaction()
+                                .onError([deferred](const char *message) {
+                                    deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
+                                });
                     });
 
                   }

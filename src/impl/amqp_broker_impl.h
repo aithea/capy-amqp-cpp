@@ -151,11 +151,8 @@ namespace capy::amqp {
 
         }
 
-//        void listen_messages(const std::string &queue, const std::vector<std::string> &keys,
-//                             const ListenHandler &on_data);
 
         DeferredListen& listen_messages(const std::string &queue, const std::vector<std::string> &keys);
-                             //const ListenHandler &on_data);
 
 
         void fetch_message(const json& message, const std::string& routing_key, const FetchHandler& on_data);
