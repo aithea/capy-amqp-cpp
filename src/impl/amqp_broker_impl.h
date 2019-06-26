@@ -154,8 +154,9 @@ namespace capy::amqp {
 
         DeferredListen& listen_messages(const std::string &queue, const std::vector<std::string> &keys);
 
+        DeferredFetch& fetch_message(const json& message, const std::string& routing_key);
 
-        void fetch_message(const json& message, const std::string& routing_key, const FetchHandler& on_data);
+        Error publis_message(const json& message, const std::string& routing_key);
 
 
         Error publish(

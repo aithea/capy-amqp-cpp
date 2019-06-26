@@ -25,7 +25,7 @@ TEST(Exchange, AsyncListenTest) {
   }
 
 
-  capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address); //capy::amqp::BrokerImpl(*address, "capy-test");
+  capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address);
 
   EXPECT_TRUE(broker);
 
@@ -60,13 +60,14 @@ TEST(Exchange, AsyncListenTest) {
 
                 catch (std::exception& e) {
                   std::cerr << "amqp worker error: " << e.what() << std::endl;
-                  return;
                 }
 
 
-                if (counter%4) {
+                if (counter%11 == 0) {
 
-                  replay = capy::make_unexpected(capy::Error(capy::amqp::BrokerError::DATA_RESPONSE,"some error"));
+                  replay = capy::make_unexpected(capy::Error(
+                          capy::amqp::BrokerError::DATA_RESPONSE,
+                          capy::error_string("some error %i", counter)));
 
                 } else{
 

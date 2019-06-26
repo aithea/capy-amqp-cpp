@@ -17,7 +17,7 @@ TEST(Exchange, AsyncFetchTest) {
   }
 
 
-  capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address); //capy::amqp::BrokerImpl(*address, "capy-test");
+  capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address);
 
   EXPECT_TRUE(broker);
 
@@ -37,29 +37,26 @@ TEST(Exchange, AsyncFetchTest) {
     action["action"] = "echo";
     action["payload"] = {{"ids", timestamp}, {"timestamp", timestamp}, {"i", i}};
 
-    //std::cout << "fetch[" << i << "] action: " <<  action.dump(4) << std::endl;
-
     std::string key = "echo.ping";
 
-    if (auto error = broker->fetch(action, key, [&](const capy::Result<capy::json> &message){
+    broker->fetch(action, key)
 
-        if (!message){
+            .on_data([i](const capy::amqp::Response &response){
+              if (response){
+                std::cout << "fetch["<< i << "] received: " <<  response->dump(4) << std::endl;
+              }
+              else {
+                std::cerr << "amqp broker fetch data error: " << response.error().value() << " / " << response.error().message()
+                          << std::endl;
+              }
 
-          std::cerr << "amqp broker fetch receiving error: " << message.error().value() << " / " << message.error().message()
-                    << std::endl;
+            })
 
-        }
-        else {
-          std::cout << "fetch["<< i << "] received: " <<  message->dump(4) << std::endl;
-        }
+            .on_error([](const capy::Error& error){
+                std::cerr << "amqp broker fetch receiving error: " << error.value() << " / " << error.message()
+                          << std::endl;
 
-
-    })) {
-
-      std::cerr << "amqp broker fetch error: " << error.value() << " / " << error.message()
-                << std::endl;
-
-    }
+            });
 
     if (max_count - 1 == i) {
       ::exit(0);

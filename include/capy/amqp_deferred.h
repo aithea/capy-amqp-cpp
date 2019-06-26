@@ -3,10 +3,11 @@
 //
 
 #pragma once
+#include "amqp_common.h"
+#include "capy/dispatchq.h"
 
 #include <functional>
 #include <system_error>
-#include "amqp_common.h"
 #include <mutex>
 #include <thread>
 #include <atomic>
@@ -37,6 +38,7 @@ namespace capy::amqp {
 
         const Deferred &report_data(Types... parameters) const {
           if (*this && data_handler_) data_handler_.value()(parameters...);
+
           return *this;
         }
 

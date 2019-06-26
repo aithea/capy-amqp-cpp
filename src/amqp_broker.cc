@@ -193,9 +193,10 @@ namespace capy::amqp {
     //
     // fetch
     //
-    Error Broker::fetch(const capy::json& message, const std::string& routing_key, const FetchHandler& on_data) {
-      impl_->fetch_message(message, routing_key, on_data);
-      return capy::Error(CommonError::OK);
+    DeferredFetch& Broker::fetch(const capy::json& message, const std::string& routing_key) {
+      //impl_->fetch_message(message, routing_key, on_data);
+      return impl_->fetch_message(message, routing_key);
+//      return capy::Error(CommonError::OK);
 //      std::string correlation_id(std::to_string(BrokerImpl::correlation_id++).c_str());
 //      return impl_->publish(correlation_id, message, impl_->exchange_name, routing_key, [&](const Result<json> &message){
 //          try {
@@ -226,8 +227,9 @@ namespace capy::amqp {
     // publish
     //
     Error Broker::publish(const capy::json& message, const std::string& routing_key) {
-      std::string correlation_id(std::to_string(BrokerImpl::correlation_id++).c_str());
-      return impl_->publish(correlation_id, message, impl_->exchange_name, routing_key, std::nullopt);
+      //std::string correlation_id(std::to_string(BrokerImpl::correlation_id++).c_str());
+      //return impl_->publish(correlation_id, message, impl_->exchange_name, routing_key, std::nullopt);
+      return impl_->publis_message(message,routing_key);
     }
 
     ///
