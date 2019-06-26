@@ -46,9 +46,7 @@ namespace capy::amqp {
       return loop;
     }
 
-    BrokerImpl::~BrokerImpl() {
-      isExited = true;
-    }
+    BrokerImpl::~BrokerImpl() {}
 
     BrokerImpl::BrokerImpl(
             const capy::amqp::Address &address,
@@ -57,7 +55,7 @@ namespace capy::amqp {
             loop_(uv_loop_t_allocator(), uv_loop_t_deallocator()),
             handler_(new ConnectionHandler(loop_.get())),
             connection_(new AMQP::TcpConnection(handler_.get(), to_address(address))),
-            exchange_name(exchange)
+            exchange_name_(exchange)
     {
 
       std::thread thread_loop([this] {
@@ -67,8 +65,6 @@ namespace capy::amqp {
       thread_loop.detach();
     }
 
-    std::atomic_uint32_t BrokerImpl::correlation_id = 0;
-
     Error BrokerImpl::publis_message(const capy::json &message, const std::string &routing_key) {
       std::promise<Result<std::string>> queue_declaration;
 
@@ -77,15 +73,15 @@ namespace capy::amqp {
       AMQP::Envelope envelope(static_cast<char*>((void *)data.data()), static_cast<uint64_t>(data.size()));
       envelope.setDeliveryMode(2);
 
-      mutex.lock();
+      mutex_.lock();
       auto channel = Channel(connection_.get());
-      mutex.unlock();
+      mutex_.unlock();
 
       std::promise<std::string> publish_barrier;
 
       channel.startTransaction();
 
-      channel.publish(exchange_name, routing_key, envelope, AMQP::autodelete|AMQP::mandatory);
+      channel.publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory);
 
       channel.commitTransaction()
               .onSuccess([&publish_barrier](){
@@ -181,7 +177,7 @@ namespace capy::amqp {
               });
 
       fetch_channel_
-              ->publish(exchange_name, routing_key, envelope, AMQP::autodelete|AMQP::mandatory)
+              ->publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory)
               .onError([deferred](const char *message) {
                   deferred->report_error(Error(BrokerError::PUBLISH, message));
               });
@@ -236,14 +232,14 @@ namespace capy::amqp {
 
         listen_channel_
 
-                ->bindQueue(exchange_name, queue, routing_key)
+                ->bindQueue(exchange_name_, queue, routing_key)
 
                 .onError([&deferred, this, routing_key, queue](const char *message) {
 
                     deferred->
                             report_error(
                             capy::Error(BrokerError::QUEUE_BINDING,
-                                        error_string("%s: %s:%s <- %s", message, exchange_name.c_str())));
+                                        error_string("%s: %s:%s <- %s", message, exchange_name_.c_str())));
                 });
       }
 
@@ -298,10 +294,10 @@ namespace capy::amqp {
                           envelope.setCorrelationID(cid);
                           envelope.setExpiration("60000");
 
-                          mutex.lock();
+                          mutex_.lock();
                           listen_channel_->ack(deliveryTag);
                           auto channel = Channel(connection_.get());
-                          mutex.unlock();
+                          mutex_.unlock();
 
                           channel.startTransaction()
                                   .onError([deferred](const char *message) {
@@ -324,15 +320,15 @@ namespace capy::amqp {
                           ///
                           /// Some programmatic exception is not processing properly
                           ///
-                          mutex.lock();
+                          mutex_.lock();
                           listen_channel_->ack(deliveryTag);
-                          mutex.unlock();
+                          mutex_.unlock();
                           throw_abort(exception.what());
                         }
                         catch (...) {
-                          mutex.lock();
+                          mutex_.lock();
                           listen_channel_->ack(deliveryTag);
-                          mutex.unlock();
+                          mutex_.unlock();
                           throw_abort("Unexpected exception...");
                         }
                     });

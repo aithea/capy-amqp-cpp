@@ -5,6 +5,8 @@
 #include "gtest/gtest.h"
 #include "capy/amqp.h"
 
+#define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
+
 TEST(Exchange, AsyncFetchTest) {
   auto address = capy::amqp::Address::From("amqp://guest:guest@localhost:5672/");
 
@@ -39,6 +41,8 @@ TEST(Exchange, AsyncFetchTest) {
 
     std::string key = "echo.ping";
 
+    std::cout << " fetch: " << key << std::endl;
+
     broker->fetch(action, key)
 
             .on_data([i](const capy::amqp::Response &response){
@@ -62,7 +66,9 @@ TEST(Exchange, AsyncFetchTest) {
       ::exit(0);
     }
 
-    //std::this_thread::sleep_for(std::chrono::milliseconds(1));
+#if CAPY_RPC_TEST_EMULATE_COMPUTATION == 1
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+#endif
 
   }
 
