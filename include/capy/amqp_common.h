@@ -35,9 +35,9 @@ namespace capy {
          */
         Error(const std::error_condition code, const std::optional<std::string>& message = std::nullopt);
 
-        Error(const Error&) = default;
-        Error(Error &&) = default;
-        Error &operator=(const Error&)  = default;
+        //Error(const Error&) = default;
+        //Error(Error &&) = default;
+        //Error &operator=(const Error&)  = default;
 
         /***
          * Get the error value

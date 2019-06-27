@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 #include "capy/amqp.h"
 
-#define CAPY_RPC_TEST_EMULATE_COMPUTATION 1
+#define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
 
 TEST(Exchange, AsyncFetchTest) {
   auto address = capy::amqp::Address::From("amqp://guest:guest@localhost:5672/");
@@ -29,7 +29,7 @@ TEST(Exchange, AsyncFetchTest) {
     return;
   }
 
-  int max_count = 3000;
+  int max_count = 100;
 
   for (int i = 0; i < max_count ; ++i) {
 

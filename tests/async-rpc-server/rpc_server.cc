@@ -8,7 +8,8 @@
 #include <ctime>
 #include <cstdlib>
 
-#define CAPY_RPC_TEST_EMULATE_COMPUTATION 1
+#define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
+#define CAPY_RPC_TEST_EMULATE_ERROR 0
 
 TEST(Exchange, AsyncListenTest) {
 
@@ -51,6 +52,7 @@ TEST(Exchange, AsyncListenTest) {
 
                 std::cout << " listen["<< counter << "] received ["<< request->routing_key << "]: " << request->message.dump(4) << std::endl;
 
+#if CAPY_RPC_TEST_EMULATE_ERROR == 1
                 ///
                 /// developer must process any exception inside the worker code
                 ///
@@ -61,7 +63,7 @@ TEST(Exchange, AsyncListenTest) {
                 catch (std::exception& e) {
                   std::cerr << "amqp worker error: " << e.what() << std::endl;
                 }
-
+#endif
 
                 if (counter%11 == 0) {
 

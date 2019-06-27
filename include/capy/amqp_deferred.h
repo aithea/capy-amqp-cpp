@@ -28,7 +28,7 @@ namespace capy::amqp {
 
         Deferred(const Error &error = Error(CommonError::OK)) : error_(error) {}
 
-        Deferred(const Deferred &that) = delete;
+        Deferred(const Deferred &that) = default;
 
         Deferred(Deferred &&that) = default;
 

@@ -10,26 +10,11 @@
 
 namespace capy::amqp {
 
-    class Channel: public AMQP::TcpChannel{
-        typedef AMQP::TcpChannel __TcpChannel;
-    public:
-        using __TcpChannel::__TcpChannel;
-        virtual ~Channel() override {}
-    };
-
     inline static std::string create_unique_id() {
       static int n = 1;
       std::ostringstream os;
       os << n++;
       return os.str();
-    }
-
-    inline static AMQP::Login to_login(const capy::amqp::Login& login) {
-      return AMQP::Login(login.get_username(), login.get_password());
-    }
-
-    inline static  AMQP::Address to_address(const capy::amqp::Address& address) {
-      return AMQP::Address(address.get_hostname(), address.get_port(), to_login(address.get_login()), address.get_vhost());
     }
 
     struct uv_loop_t_deallocator {
@@ -48,22 +33,34 @@ namespace capy::amqp {
 
     BrokerImpl::~BrokerImpl() {}
 
-    BrokerImpl::BrokerImpl(
-            const capy::amqp::Address &address,
-            const std::string &exchange):
-
-            loop_(uv_loop_t_allocator(), uv_loop_t_deallocator()),
-            handler_(new ConnectionHandler(loop_.get())),
-            connection_(new AMQP::TcpConnection(handler_.get(), to_address(address))),
-            exchange_name_(exchange)
-    {
-
-      std::thread thread_loop([this] {
-          uv_run(loop_.get(), UV_RUN_DEFAULT);
-      });
-
-      thread_loop.detach();
-    }
+//    BrokerImpl::BrokerImpl(
+//            const capy::amqp::Address &address,
+//            const std::string &exchange):
+//
+//            loop_(uv_loop_t_allocator(), uv_loop_t_deallocator()),
+//
+//            handler_(new ConnectionHandler(loop_.get())),
+//
+//            pool_(std::make_shared<ConnectionPool>(
+//                    std::thread::hardware_concurrency(),
+//                    [&address,this](size_t index){
+//                        return new Connection(handler_, address);
+//                    })),
+//
+//            //connection_(new AMQP::TcpConnection(handler_.get(), to_address(address))),
+//            exchange_name_(exchange)
+//    {
+//
+////      pool_ = std::make_shared<ConnectionPool>(std::thread::hardware_concurrency(), [&address,this](size_t index){
+////                return new Connection(handler_, address);
+////            });
+//
+//      std::thread thread_loop([this] {
+//          uv_run(loop_.get(), UV_RUN_DEFAULT);
+//      });
+//
+//      thread_loop.detach();
+//    }
 
     Error BrokerImpl::publish_message(const capy::json &message, const std::string &routing_key) {
       std::promise<Result<std::string>> queue_declaration;
@@ -73,17 +70,19 @@ namespace capy::amqp {
       AMQP::Envelope envelope(static_cast<char*>((void *)data.data()), static_cast<uint64_t>(data.size()));
       envelope.setDeliveryMode(2);
 
-      mutex_.lock();
-      auto channel = Channel(connection_.get());
-      mutex_.unlock();
+      //mutex_.lock();
+      //auto channel = Channel(connection_.get());
+      //mutex_.unlock();
+
+      auto connection = connection_pool_->acquire();
 
       std::promise<std::string> publish_barrier;
 
-      channel.startTransaction();
+      connection->get_channel()->startTransaction();
 
-      channel.publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory);
+      connection->get_channel()->publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory);
 
-      channel.commitTransaction()
+      connection->get_channel()->commitTransaction()
               .onSuccess([&publish_barrier](){
                   publish_barrier.set_value("");
               })
@@ -94,8 +93,11 @@ namespace capy::amqp {
       auto error = publish_barrier.get_future().get();
 
       if (!error.empty()){
+        connection_pool_->release(connection);
         return Error(amqp::BrokerError::PUBLISH, error);
       }
+
+      connection_pool_->release(connection);
 
       return Error(amqp::CommonError::OK);
     }
@@ -107,11 +109,31 @@ namespace capy::amqp {
 
       auto deferred = std::make_shared<capy::amqp::DeferredFetch>();
 
-      std::lock_guard lock(mutex_);
+      std::cout << "1 ... acquire... " << std::endl;
+
+      //std::lock_guard lock(mutex_);
 
       if (fetch_channel_ == nullptr) {
-        fetch_channel_ = std::unique_ptr<AMQP::TcpChannel>(new AMQP::TcpChannel(connection_.get()));
+        auto connection = connection_pool_->acquire();
+        fetch_channel_ = std::unique_ptr<AMQP::TcpChannel>(new AMQP::TcpChannel(connection->get_connection())); //connection->get_channel();
+
       }
+      //  fetch_channel_ = std::unique_ptr<AMQP::TcpChannel>(new AMQP::TcpChannel(connection_.get()));
+
+      std::promise<void> ready_barrier;
+
+      //auto &channel = *fetch_channel_; //Channel(connection->get_connection());
+
+      fetch_channel_->onReady([&ready_barrier](){
+          std::cout << "1.1 ... onReady... " << std::endl;
+          ready_barrier.set_value();
+      });
+
+        ready_barrier.get_future().wait();
+//      }
+//
+
+      std::cout << "2 ... acquire... " << std::endl;
 
       fetch_channel_
 
@@ -119,11 +141,14 @@ namespace capy::amqp {
 
               .onSuccess(
                       [this,
-                              message,
+                              &message,
                               deferred,
-                              routing_key]
+                              routing_key
+                              ]
 
                               (const std::string &name, uint32_t messagecount, uint32_t consumercount) {
+
+                          std::cout << "3 ... message... " << /*message.dump(4) << */std::endl;
 
                           auto data = json::to_msgpack(message);
 
@@ -133,17 +158,21 @@ namespace capy::amqp {
                           envelope.setCorrelationID(create_unique_id());
                           envelope.setReplyTo(name);
 
-                          std::lock_guard lock(mutex_);
+                          //auto connection = connection_pool_->acquire();
+
+                          //std::lock_guard lock(mutex_);
 
                           fetch_channel_
 
                                   ->consume(envelope.replyTo(), AMQP::noack)
 
-                                  .onReceived([deferred](
+                                  .onReceived([deferred, this](
 
-                                          const AMQP::Message &message,
+                                      const AMQP::Message &message,
                                           uint64_t deliveryTag,
                                           bool redelivered) {
+
+                                      //connection_pool_->release(connection);
 
                                       std::vector<std::uint8_t> buffer(
                                               static_cast<std::uint8_t *>((void*)message.body()),
@@ -161,35 +190,33 @@ namespace capy::amqp {
 
                                       deferred->report_error(Error(BrokerError::DATA_RESPONSE, message));
 
+                                  })
+
+                                  .onFinalize([]{
+                                      std::cout << "7 ... onFinalize... "  << std::endl;
+                                      //connection_pool_->release(connection);
                                   });
 
+                          fetch_channel_->startTransaction();
 
-                          fetch_channel_
-                                  ->startTransaction()
+                          fetch_channel_->publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory);
+
+                          fetch_channel_->commitTransaction()
                                   .onError([deferred](const char *message) {
                                       deferred->report_error(Error(BrokerError::PUBLISH, message));
                                   });
-
-                          fetch_channel_
-                                  ->publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory)
-                                  .onError([deferred](const char *message) {
-                                      deferred->report_error(Error(BrokerError::PUBLISH, message));
-                                  });
-
-
-                          fetch_channel_
-                                  ->commitTransaction()
-                                  .onError([deferred](const char *message) {
-                                      deferred->report_error(Error(BrokerError::PUBLISH, message));
-                                  });
-
-
                       })
 
               .onError([deferred](const char *message) {
+                  std::cout << "5 ... onError... "  << message << std::endl;
                   deferred->report_error(Error(BrokerError::QUEUE_DECLARATION, message));
+              })
+
+              .onFinalize([]{
+                  std::cout << "6 ... onFinalize... "  << std::endl;
               });
 
+      //connection_pool_->release(connection);
 
       return *deferred;
     }
@@ -202,37 +229,39 @@ namespace capy::amqp {
 
       auto deferred = std::make_shared<capy::amqp::DeferredListen>();
 
-      if (listen_channel_ != nullptr) {
-        throw_abort("Listener channel already used, you must create a new broker...");
-      }
+//      if (listen_channel_ != nullptr) {
+//        throw_abort("Listener channel already used, you must create a new broker...");
+//      }
 
-      listen_channel_ = std::unique_ptr<AMQP::TcpChannel>(new AMQP::TcpChannel(connection_.get()));
+      auto connection = connection_pool_->acquire();
 
-      listen_channel_->onError([deferred](const char *message) {
+      //listen_channel_ = std::unique_ptr<AMQP::TcpChannel>(new AMQP::TcpChannel(connection_.get()));
+
+      connection->get_channel()->onError([deferred](const char *message) {
           deferred->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, message));
       });
 
       std::promise<void> on_ready_barrier;
 
-      listen_channel_->onReady([&on_ready_barrier] {
+      connection->get_channel()->onReady([&on_ready_barrier] {
           on_ready_barrier.set_value();
       });
 
       on_ready_barrier.get_future().wait();
 
       // create a queue
-      listen_channel_
+      connection->get_channel()
 
               ->declareQueue(queue, AMQP::durable)
 
-              .onError([deferred](const char *message) {
+              .onError([&deferred](const char *message) {
                   deferred->report_error(capy::Error(BrokerError::QUEUE_DECLARATION, message));
               });
 
 
       for (auto &routing_key: keys) {
 
-        listen_channel_
+        connection->get_channel()
 
                 ->bindQueue(exchange_name_, queue, routing_key)
 
@@ -245,11 +274,11 @@ namespace capy::amqp {
                 });
       }
 
-      listen_channel_
+      connection->get_channel()
 
               ->consume(queue)
 
-              .onReceived([this, deferred, &queue](
+              .onReceived([this, deferred, &queue, connection](
                       const AMQP::Message &message,
                       uint64_t deliveryTag,
                       bool redelivered) {
@@ -263,6 +292,8 @@ namespace capy::amqp {
 
                   try {
 
+                    //auto channel = std::shared_ptr<Channel>(new Channel(connection_.get()));
+
                     capy::json received = json::from_msgpack(buffer);
 
                     capy::amqp::Task::Instance().async([ this,
@@ -270,7 +301,9 @@ namespace capy::amqp {
                                                                replay_to,
                                                                received,
                                                                cid,
-                                                               deliveryTag
+                                                               deliveryTag,
+                                                               &connection
+                                                               //channel
                                                        ] {
 
                         try {
@@ -294,30 +327,27 @@ namespace capy::amqp {
                                                   static_cast<uint64_t>(data.size()));
 
                           envelope.setCorrelationID(cid);
-                          envelope.setExpiration("60000");
+                          //envelope.setExpiration("60000");
 
-                          mutex_.lock();
-                          listen_channel_->ack(deliveryTag);
-                          mutex_.unlock();
+                          {
+                            std::lock_guard lock(mutex_);
+                            connection->get_channel()->ack(deliveryTag);
+                          }
 
-                          //mutex_.lock();
-                          auto channel = Channel(connection_.get());
-                          //mutex_.unlock();
+                          auto publush_connection = connection_pool_->acquire();
 
-                          channel.startTransaction()
+                          auto channel = publush_connection->get_channel(); //std::shared_ptr<Channel>(new Channel(connection_.get()));
+
+                          channel->startTransaction();
+
+                          channel->publish("", replay_to, envelope);
+
+                          channel->commitTransaction()
                                   .onError([deferred](const char *message) {
                                       deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
                                   });
 
-                          channel.publish("", replay_to, envelope)
-                                  .onError([deferred](const char *message) {
-                                      deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
-                                  });
-
-                          channel.commitTransaction()
-                                  .onError([deferred](const char *message) {
-                                      deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
-                                  });
+                          connection_pool_->release(publush_connection);
 
                         }
 
@@ -325,15 +355,14 @@ namespace capy::amqp {
                           ///
                           /// Some programmatic exception is not processing properly
                           ///
-                          mutex_.lock();
-                          listen_channel_->ack(deliveryTag);
-                          mutex_.unlock();
+
+                          std::lock_guard lock(mutex_);
+                          connection->get_channel()->ack(deliveryTag);
                           throw_abort(exception.what());
                         }
                         catch (...) {
-                          mutex_.lock();
-                          listen_channel_->ack(deliveryTag);
-                          mutex_.unlock();
+                          std::lock_guard lock(mutex_);
+                          connection->get_channel()->ack(deliveryTag);
                           throw_abort("Unexpected exception...");
                         }
                     });
@@ -341,11 +370,13 @@ namespace capy::amqp {
                   }
 
                   catch (json::exception &exception) {
-                    listen_channel_->ack(deliveryTag);
+                    std::lock_guard lock(mutex_);
+                    connection->get_channel()->ack(deliveryTag);
                     deferred->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, exception.what()));
                   }
                   catch (...) {
-                    listen_channel_->ack(deliveryTag);
+                    std::lock_guard lock(mutex_);
+                    connection->get_channel()->ack(deliveryTag);
                     deferred->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, "Unexpected exception..."));
                   }
 
