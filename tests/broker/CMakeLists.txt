@@ -1,5 +1,5 @@
 if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.env)
-    file (WRITE "${VERSION_FILE}" "CAPY_AMQP_ADDRESS=amqp://guest:guest@localhost:5672/")
+    file (WRITE ".env" "CAPY_AMQP_ADDRESS=amqp://guest:guest@localhost:5672/")
 endif()
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.env)
