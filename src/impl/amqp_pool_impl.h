@@ -12,6 +12,42 @@
 
 namespace capy {
 
+    template<typename T> class Pool;
+
+    template<typename T>
+    class Node
+    {
+        friend class Pool<T>;
+
+    public:
+        explicit Node() : m_val() { }
+
+        template<class... Args>
+        void construct(Args&&... args)
+        {
+          new (&m_val) T(std::forward<Args>(args)...);
+        }
+
+        T& operator=(const T& val)
+        {
+          m_val = val;
+          return m_val;
+        }
+
+        T& operator*() { return m_val; }
+        const T& operator*() const { return m_val; }
+
+        T& val() { return m_val; }
+        const T& val() const { return m_val; }
+
+        T* operator->() { return &m_val; }
+        const T* operator->() const { return &m_val; }
+
+    private:
+
+        T m_val;
+    };
+
     template<typename O>
     class Pool final {
 
