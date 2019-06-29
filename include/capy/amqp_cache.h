@@ -258,7 +258,6 @@ namespace capy {
           shared_ptr<Shard<T> > shard = this->shards.at(index);
 
           // Lock and erase
-          //mutex::scoped_lock lock(*shard->guard);
           std::scoped_lock lock(*shard->guard);
           return shard->map.erase(id);
 

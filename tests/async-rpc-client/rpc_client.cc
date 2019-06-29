@@ -28,13 +28,14 @@ TEST(Exchange, AsyncFetchTest) {
     return;
   }
 
-  int max_count = 10;
+  int max_count = 100000;
+
+  capy::json action;
 
   for (int i = 0; i < max_count ; ++i) {
 
     std::string timestamp = std::to_string(time(0));
 
-    capy::json action;
     action["action"] = "echo";
     action["payload"] = {{"ids", timestamp}, {"timestamp", timestamp}, {"i", i}};
 
@@ -42,7 +43,7 @@ TEST(Exchange, AsyncFetchTest) {
 
     std::cout << " fetch["<<i<<"]: " << key << std::endl;
 
-    //capy::dispatchq::main::async([&broker, action, key, max_count, i](){
+    capy::dispatchq::main::async([&broker, action, key, max_count, i](){
 
         broker->fetch(action, key)
 
@@ -76,7 +77,7 @@ TEST(Exchange, AsyncFetchTest) {
                     }
                 });
 
-    //});
+    });
 
 #if CAPY_RPC_TEST_EMULATE_COMPUTATION == 1
     auto r = (rand() % 10) + 1;
@@ -85,5 +86,5 @@ TEST(Exchange, AsyncFetchTest) {
 
   }
 
-  //capy::dispatchq::main::loop::run();
+  capy::dispatchq::main::loop::run();
 }

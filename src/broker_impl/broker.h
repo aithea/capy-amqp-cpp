@@ -4,12 +4,12 @@
 
 #pragma once
 
-#include "amqp_handler_impl.h"
+#include "handler.h"
 #include "capy/amqp_broker.h"
 
 #include "amqp.h"
 #include "amqp_tcp_socket.h"
-#include "amqp_pool_impl.h"
+#include "pool.h"
 
 #include "capy/amqp_deferred.h"
 #include "capy/dispatchq.h"

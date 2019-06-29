@@ -2,7 +2,7 @@
 // Created by denn nevera on 2019-06-21.
 //
 
-#include "amqp_broker_impl.h"
+#include "broker.h"
 #include "capy/amqp_common.h"
 
 #include <condition_variable>
@@ -18,6 +18,11 @@ namespace capy::amqp {
     }
 
     BrokerImpl::~BrokerImpl() {}
+
+
+    ///
+    /// MARK: - publish
+    ///
 
     Error BrokerImpl::publish_message(const capy::json &message, const std::string &routing_key) {
       std::promise<Result<std::string>> queue_declaration;
@@ -52,6 +57,11 @@ namespace capy::amqp {
       return Error(amqp::CommonError::OK);
     }
 
+
+
+    ///
+    /// MARK: - fetch
+    ///
 
     DeferredFetch& BrokerImpl::fetch_message(
             const capy::json &message,

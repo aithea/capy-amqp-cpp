@@ -30,7 +30,7 @@ FILE(GLOB INCLUDE_FILES
 
 FILE(GLOB SOURCES
         ../src/*.cc
-        ../src/impl/*.cc
+        ../src/broker_impl/*.cc
         )
 
 add_library(

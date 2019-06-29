@@ -18,8 +18,8 @@
 
 #include <future>
 
-#include "impl/amqp_handler_impl.h"
-#include "impl/amqp_broker_impl.h"
+#include "broker_impl/handler.h"
+#include "broker_impl/broker.h"
 
 namespace capy::amqp {
 
