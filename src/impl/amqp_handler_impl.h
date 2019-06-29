@@ -32,20 +32,25 @@ namespace capy::amqp {
           std::cout << "connected" << std::endl;
         }
 
-//        virtual uint16_t onNegotiate(AMQP::TcpConnection *connection, uint16_t interval)
-//        {
-//          // we accept the suggestion from the server, but if the interval is smaller
-//          // that one minute, we will use a one minute interval instead
-//          if (interval < 60) interval = 60;
-//
-//          // @todo
-//          //  set a timer in your event loop, and make sure that you call
-//          //  connection->heartbeat() every _interval_ seconds if no other
-//          //  instruction was sent in that period.
-//
-//          // return the interval that we want to use
-//          return interval;
-//        }
+        virtual void onClosed(AMQP::TcpConnection *connection) override
+        {
+          // make sure compilers dont complain about unused parameters
+          (void) connection;
+          std::cout << "closed" << std::endl;
+
+        }
+
+        /**
+         *  Method that is called when the TCP connection is lost or closed. This
+         *  is always called if you have also received a call to onConnected().
+         *  @param  connection  The TCP connection
+         */
+        virtual void onLost(AMQP::TcpConnection *connection) override
+        {
+          // make sure compilers dont complain about unused parameters
+          (void) connection;
+          std::cout << "is lost... " << std::endl;
+        }
 
     public:
         /**

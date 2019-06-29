@@ -23,102 +23,53 @@
 
 namespace capy::amqp {
 
-//    inline static AMQP::Login to_login(const capy::amqp::Login& login) {
-//      return AMQP::Login(login.get_username(), login.get_password());
-//    }
-//
-//    inline static  AMQP::Address to_address(const capy::amqp::Address& address) {
-//      return AMQP::Address(address.get_hostname(), address.get_port(), to_login(address.get_login()), address.get_vhost());
-//    }
-
-    inline static uv_loop_t * uv_loop_t_allocator() {
-      uv_loop_t *loop = (uv_loop_t*)malloc(sizeof(uv_loop_t));
-      uv_loop_init(loop);
-      return loop;
-    }
-
-    struct uv_loop_t_deallocator {
-        void operator()(uv_loop_t* loop) const {
-          uv_stop(loop);
-          uv_loop_close(loop);
-          free(loop);
-        }
-    };
-
     //
     // MARK: - bind
     //
     Result <Broker> Broker::Bind(const capy::amqp::Address &address, const std::string &exchange_name) {
 
       try {
-        auto loop = std::shared_ptr<uv_loop_t>(uv_loop_t_allocator(), uv_loop_t_deallocator());
-        if (loop == nullptr) {
-          return capy::make_unexpected(
-                  capy::Error(BrokerError::MEMORY,
-                              error_string("Connection event loop could not be created because memory error..")));
-        }
 
-        auto handler = std::shared_ptr<ConnectionHandler>(new ConnectionHandler(loop.get()));
-
-        if (handler == nullptr) {
-          return capy::make_unexpected(
-                  capy::Error(BrokerError::MEMORY,
-                              error_string("Connection handler could not be created because memory error..")));
-        }
-
-        //auto connection = std::unique_ptr<AMQP::TcpConnection>(new AMQP::TcpConnection(handler.get(), to_address(address)));
-
-        //if (connection == nullptr) {
-        //  return capy::make_unexpected(
-        //          capy::Error(BrokerError::MEMORY,
-        //                      error_string("Connection could not be created because memory error..")));
-        //}
-
-        auto impl = std::shared_ptr<BrokerImpl>(new BrokerImpl());
+        auto impl = std::make_shared<BrokerImpl>();
 
         impl->exchange_name_ = exchange_name;
-        impl->loop_ = loop;
-        impl->handler_ = std::move(handler);
-        //impl->connection_ = std::move(connection);
+        impl->connection_pool_ = std::make_unique<ConnectionPool>(address);
 
-        impl->connection_pool_ = std::make_shared<BrokerImpl::ConnectionPool>(std::thread::hardware_concurrency(), [&address,&impl](size_t index){
-            return new Connection(impl->handler_, address);
-        });
-
-        std::thread thread_loop([&impl] {
-            uv_run(impl->loop_.get(), UV_RUN_DEFAULT);
-        });
-
-        thread_loop.detach();
-
-        //AMQP::TcpChannel channel(impl->connection_.get());
-
-        auto connection = impl->connection_pool_->acquire();
+        auto channel = impl->connection_pool_->get_channel();
 
         std::promise<std::string> error_message;
 
-        connection->get_channel()
+        std::cout << "1.0 ... bind " << std::endl;
+
+        channel
 
                 ->declareExchange(exchange_name, AMQP::topic, AMQP::durable)
 
                 .onSuccess([&error_message]{
+                    std::cout << "1.1 ... bind onSuccess" << std::endl;
                     error_message.set_value("");
                 })
 
                 .onError([&error_message](const char *message){
+                    std::cout << "1.2 ... bind onError: " << message << std::endl;
                     error_message.set_value(message);
+                })
+                .onFinalize([](){
+                    std::cout << "1.3 ... bind onFinalize" << std::endl;
                 });
+
+        std::cout << "2.0 ... bind " << std::endl;
 
         auto error = error_message.get_future().get();
 
+        std::cout << "3.0 ... bind " << std::endl;
+
         if(!error.empty()) {
-          impl->connection_pool_->release(connection);
           return capy::make_unexpected(
                   capy::Error(BrokerError::EXCHANGE_DECLARATION,
-                              error_string("Connection has been closed: %s", error.c_str())));
+                              error_string("ConnectionPool has been closed: %s", error.c_str())));
         }
 
-        impl->connection_pool_->release(connection);
         return Broker(impl);
       }
       catch (std::exception& e) {
@@ -171,7 +122,7 @@ namespace capy::amqp {
     std::string BrokerErrorCategory::message(int ev) const {
       switch (ev) {
         case static_cast<int>(BrokerError::CONNECTION):
-          return "Connection error";
+          return "ConnectionPool error";
         default:
           return ErrorCategory::message(ev);
       }

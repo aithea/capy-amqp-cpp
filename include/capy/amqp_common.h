@@ -9,6 +9,7 @@
 #include <optional>
 
 #include "capy/amqp_expected.h"
+#include "capy/amqp_cache.h"
 #include "nlohmann/json.h"
 
 #define PUBLIC_ENUM(OriginalType) std::underlying_type_t<OriginalType>

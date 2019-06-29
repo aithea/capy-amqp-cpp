@@ -8,8 +8,8 @@
 #include <ctime>
 #include <cstdlib>
 
-#define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
-#define CAPY_RPC_TEST_EMULATE_ERROR 0
+#define CAPY_RPC_TEST_EMULATE_COMPUTATION 1
+#define CAPY_RPC_TEST_EMULATE_ERROR 1
 
 TEST(Exchange, AsyncListenTest) {
 
@@ -24,7 +24,6 @@ TEST(Exchange, AsyncListenTest) {
               << std::endl;
     return;
   }
-
 
   capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address);
 

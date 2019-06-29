@@ -77,6 +77,7 @@ namespace capy::amqp {
          * Copy Address object
          */
         Address(const Address &);
+        Address(Address &&) = default;
 
         /***
          * Copy operation
