@@ -263,6 +263,16 @@ namespace capy {
 
         };
 
+        size_t flush() {
+          size_t count = 0;
+          for(auto shard: this->shards) {
+            std::scoped_lock lock(*shard->guard);
+            count += shard->map.size();
+            shard->map.clear();
+          }
+          return count;
+        }
+
         /**
          * Get a value from the cache
          *

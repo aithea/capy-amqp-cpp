@@ -31,6 +31,7 @@ namespace capy::amqp {
          * Connection error
          */
         CONNECTION = EXTEND_ENUM(CommonError, LAST),
+        CONNECTION_LOST,
         MEMORY,
         LOGIN,
         CHANNEL_READY,

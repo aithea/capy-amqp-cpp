@@ -8,6 +8,7 @@
 #include <amqpcpp.h>
 #include <amqpcpp/libuv.h>
 #include <memory>
+#include "capy/amqp_broker.h"
 
 namespace capy::amqp {
 /**
@@ -21,6 +22,7 @@ namespace capy::amqp {
          *  @param  message
          */
         virtual void onError(AMQP::TcpConnection* connection, const char* message) override {
+          (void) connection;
           std::cout << "error: " << message << std::endl;
         }
 
@@ -29,15 +31,14 @@ namespace capy::amqp {
          *  @param  connection  The TCP connection
          */
         virtual void onConnected(AMQP::TcpConnection* connection) override {
-          std::cout << "connected" << std::endl;
+          (void) connection;
         }
 
         virtual void onClosed(AMQP::TcpConnection *connection) override
         {
           // make sure compilers dont complain about unused parameters
           (void) connection;
-          std::cout << "closed" << std::endl;
-
+          std::cerr << "closed" << std::endl;
         }
 
         /**
@@ -49,7 +50,9 @@ namespace capy::amqp {
         {
           // make sure compilers dont complain about unused parameters
           (void) connection;
-          std::cout << "is lost... " << std::endl;
+          if (deferred) {
+            deferred->report_error(capy::Error(capy::amqp::BrokerError::CONNECTION_LOST, "connection lost"));
+          }
         }
 
     public:
@@ -64,5 +67,7 @@ namespace capy::amqp {
          *  Destructor
          */
         virtual ~ConnectionHandler() = default;
+
+        std::shared_ptr<capy::amqp::DeferredListen> deferred = nullptr;
     };
 }

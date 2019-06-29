@@ -17,7 +17,9 @@ namespace capy::amqp {
       return os.str();
     }
 
-    BrokerImpl::~BrokerImpl() {}
+    BrokerImpl::~BrokerImpl() {
+      connection_pool_->flush();
+    }
 
 
     ///
@@ -160,6 +162,8 @@ namespace capy::amqp {
 
       auto deferred = std::make_shared<capy::amqp::DeferredListen>();
 
+      connection_pool_->set_deferred(deferred);
+
       auto channel = connection_pool_->get_channel();
 
       channel->onError([deferred](const char *message) {
@@ -292,6 +296,7 @@ namespace capy::amqp {
               .onError([deferred](const char *message) {
                   deferred->report_error(capy::Error(BrokerError::QUEUE_CONSUMING, message));
               });
+
 
       return *deferred;
 

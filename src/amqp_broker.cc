@@ -39,30 +39,20 @@ namespace capy::amqp {
 
         std::promise<std::string> error_message;
 
-        std::cout << "1.0 ... bind " << std::endl;
-
         channel
 
                 ->declareExchange(exchange_name, AMQP::topic, AMQP::durable)
 
                 .onSuccess([&error_message]{
-                    std::cout << "1.1 ... bind onSuccess" << std::endl;
                     error_message.set_value("");
                 })
 
                 .onError([&error_message](const char *message){
-                    std::cout << "1.2 ... bind onError: " << message << std::endl;
                     error_message.set_value(message);
-                })
-                .onFinalize([](){
-                    std::cout << "1.3 ... bind onFinalize" << std::endl;
                 });
 
-        std::cout << "2.0 ... bind " << std::endl;
 
         auto error = error_message.get_future().get();
-
-        std::cout << "3.0 ... bind " << std::endl;
 
         if(!error.empty()) {
           return capy::make_unexpected(

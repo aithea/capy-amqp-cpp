@@ -29,7 +29,6 @@ namespace capy::amqp {
 
     struct uv_loop_t_deallocator {
         void operator()(uv_loop_t* loop) const {
-          std::cout << " ~ uv_loop_t_deallocator ... " << std::endl;
           uv_stop(loop);
           uv_loop_close(loop);
           free(loop);
@@ -49,8 +48,6 @@ namespace capy::amqp {
     public:
         using __TcpChannel::__TcpChannel;
         virtual ~Channel() override {
-          std::cout << " ~ Channel(" <<id()<< ") ... " << std::endl;
-
         }
     };
 
@@ -91,6 +88,10 @@ namespace capy::amqp {
           thread_loop_.detach();
         }
 
+        void set_deferred(const std::shared_ptr<capy::amqp::DeferredListen>& aDeferred) {
+          handler_->deferred = aDeferred;
+        }
+
         Connection(const Connection& ) = default;
         Connection(Connection&& ) = default;
 
@@ -105,7 +106,19 @@ namespace capy::amqp {
         ConnectionPool(
                 const capy::amqp::Address &address):
                 address_(address)
-                {}
+        {}
+
+        void flush() {
+          connections_.flush();
+        }
+
+        void set_deferred(const std::shared_ptr<capy::amqp::DeferredListen>& aDeferred) {
+          auto id = std::this_thread::get_id();
+          if (!connections_.has(id)) {
+            connections_.set(id, std::make_shared<Connection>(address_));
+          }
+          connections_.get(id)->set_deferred(aDeferred);
+        }
 
         Channel* get_channel() {
 
