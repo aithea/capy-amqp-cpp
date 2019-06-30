@@ -4,7 +4,7 @@
 
 #include "capy/amqp.h"
 #include "gtest/gtest.h"
-#include "../../src/impl/amqp_pool_impl.h"
+#include "../../src/broker_impl/pool.h"
 
 struct TestObject {
     TestObject(int anI ): i(anI){}

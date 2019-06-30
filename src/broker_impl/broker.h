@@ -49,6 +49,7 @@ namespace capy::amqp {
         using __TcpChannel::__TcpChannel;
         virtual ~Channel() override {
         }
+
     };
 
 
@@ -62,17 +63,17 @@ namespace capy::amqp {
     private:
         std::thread thread_loop_;
         std::shared_ptr<uv_loop_t> loop_;
-        const std::shared_ptr<ConnectionHandler> handler_;
+        std::shared_ptr<ConnectionHandler> handler_;
         std::unique_ptr<AMQP::TcpConnection> connection_;
+        std::unique_ptr<Channel>    channel_;
 
     public:
-        std::unique_ptr<Channel>    channel;
 
         Connection(const capy::amqp::Address& address):
                 loop_(std::shared_ptr<uv_loop_t>(uv_loop_t_allocator(), uv_loop_t_deallocator())),
                 handler_(std::make_shared<ConnectionHandler>(loop_.get())),
                 connection_(std::make_unique<AMQP::TcpConnection>(handler_.get(),to_address(address))),
-                channel(std::make_unique<Channel>(connection_.get()))
+                channel_(std::make_unique<Channel>(connection_.get()))
         {
 
           thread_loop_ = std::thread([this] {
@@ -88,12 +89,15 @@ namespace capy::amqp {
           thread_loop_.detach();
         }
 
+        AMQP::TcpConnection* get_conection() { return connection_.get(); };
+        Channel*             get_default_channel() { return channel_.get(); };
+
         void set_deferred(const std::shared_ptr<capy::amqp::DeferredListen>& aDeferred) {
           handler_->deferred = aDeferred;
         }
 
-        Connection(const Connection& ) = default;
-        Connection(Connection&& ) = default;
+        Connection(const Connection& ) = delete;
+        Connection(Connection&& ) = delete;
 
     };
 
@@ -120,7 +124,22 @@ namespace capy::amqp {
           connections_.get(id)->set_deferred(aDeferred);
         }
 
-        Channel* get_channel() {
+
+        std::shared_ptr<Channel> new_channel() {
+          auto id = std::this_thread::get_id();
+
+          if (!connections_.has(id)) {
+            auto _connection = std::make_shared<Connection>(address_);
+            connections_.set(id, _connection);
+            return std::shared_ptr<Channel>(new Channel(_connection->get_conection()));
+          }
+          else {
+            return std::shared_ptr<Channel>(new Channel(connections_.get(id)->get_conection()));
+
+          }
+        }
+
+        Channel* get_default_channel() {
 
           auto id = std::this_thread::get_id();
 
@@ -129,14 +148,17 @@ namespace capy::amqp {
           if (!connections_.has(id)) {
             auto _connection = std::make_shared<Connection>(address_);
             connections_.set(id, _connection);
-            _channel = _connection->channel.get();
+            _channel = _connection->get_default_channel();
           }
           else {
-            _channel = connections_.get(id)->channel.get();
+            _channel = connections_.get(id)->get_default_channel();
           }
 
           return _channel;
         }
+
+        ConnectionPool(const ConnectionPool& ) = delete;
+        ConnectionPool(ConnectionPool&& ) = delete;
     };
 
     class BrokerImpl {
@@ -144,12 +166,13 @@ namespace capy::amqp {
 
     protected:
 
-        std::mutex mutex_;
         std::string exchange_name_;
         std::unique_ptr<ConnectionPool> connection_pool_;
 
     public:
         BrokerImpl(){};
+        BrokerImpl(const BrokerImpl&) = delete;
+        BrokerImpl(BrokerImpl&&) = delete;
 
         ~BrokerImpl();
 

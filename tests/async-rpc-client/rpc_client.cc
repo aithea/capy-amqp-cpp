@@ -5,7 +5,8 @@
 #include "gtest/gtest.h"
 #include "capy/amqp.h"
 
-#define CAPY_RPC_TEST_EMULATE_COMPUTATION 1
+#define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
+#define CAPY_RPC_TEST_ASYNC 1
 
 TEST(Exchange, AsyncFetchTest) {
   auto address = capy::amqp::Address::From("amqp://guest:guest@localhost:5672/");
@@ -28,7 +29,7 @@ TEST(Exchange, AsyncFetchTest) {
     return;
   }
 
-  int max_count = 100000;
+  int max_count = 1000;
 
   capy::json action;
 
@@ -43,44 +44,52 @@ TEST(Exchange, AsyncFetchTest) {
 
     std::cout << " fetch["<<i<<"]: " << key << std::endl;
 
+#if CAPY_RPC_TEST_ASYNC == 1
     capy::dispatchq::main::async([&broker, action, key, max_count, i](){
+#endif
 
-        broker->fetch(action, key)
+    //
+    // async non-block fetching messages
+    //
 
-                .on_data([i, max_count](const capy::amqp::Response &response){
+    broker->fetch(action, key)
 
-                    if (response){
-                      std::cout << "fetch["<< i << "] received: " <<  response->dump(4) << std::endl;
-                    }
-                    else {
-                      std::cerr << "amqp broker fetch data error: " << response.error().value() << " / " << response.error().message()
-                                << std::endl;
-                    }
+            .on_data([i, max_count](const capy::amqp::Response &response){
+
+                if (response){
+                  std::cout << "fetch["<< i << "] received: " <<  response->dump(4) << std::endl;
+                }
+                else {
+                  std::cerr << "amqp broker fetch data error: " << response.error().value() << " / " << response.error().message()
+                            << std::endl;
+                }
 
 
-                    if (max_count - 1 == i) {
-                      std::cout << " ... exiting ... " << std::endl;
-                      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                      ::exit(0);
-                    }
+                if (max_count - 1 == i) {
+                  std::cout << " ... exiting ... " << std::endl;
+                  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                  ::exit(0);
+                }
 
-                })
+            })
 
-                .on_error([i,max_count](const capy::Error& error){
-                    std::cerr << "amqp broker fetch receiving error: " << error.value() << " / " << error.message()
-                              << std::endl;
+            .on_error([i,max_count](const capy::Error& error){
+                std::cerr << "amqp broker fetch receiving error: " << error.value() << " / " << error.message()
+                          << std::endl;
 
-                    if (max_count - 1 == i) {
-                      std::cout << " ... exiting ... " << std::endl;
-                      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                      ::exit(-1);
-                    }
-                });
+                if (max_count - 1 == i) {
+                  std::cout << " ... exiting ... " << std::endl;
+                  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                  ::exit(-1);
+                }
+            });
 
+#if CAPY_RPC_TEST_ASYNC == 1
     });
+#endif
 
 #if CAPY_RPC_TEST_EMULATE_COMPUTATION == 1
-    auto r = (rand() % 10) + 1;
+    auto r = (rand() % 100) + 1;
     std::this_thread::sleep_for(std::chrono::milliseconds(r));
 #endif
 

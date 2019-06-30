@@ -359,15 +359,15 @@ namespace capy {
 
               }
 
-            }  catch (const std::exception &e) {
+            }
 
+            catch (const std::exception &e) {
+              // TODO... something bad happened in the curator thread
               // We were asked to leave?
               return;
 
-            }catch (const std::runtime_error& e) {
-
-              // TODO... something bad happened in the curator thread
             }
+
           }
         };
 

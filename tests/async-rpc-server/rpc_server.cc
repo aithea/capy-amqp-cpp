@@ -130,5 +130,4 @@ TEST(Exchange, AsyncListenTest) {
 
   capy::dispatchq::main::loop::run();
 
-
 }

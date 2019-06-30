@@ -35,7 +35,7 @@ namespace capy::amqp {
         impl->exchange_name_ = exchange_name;
         impl->connection_pool_ = std::make_unique<ConnectionPool>(address);
 
-        auto channel = impl->connection_pool_->get_channel();
+        auto channel = impl->connection_pool_->get_default_channel();
 
         std::promise<std::string> error_message;
 

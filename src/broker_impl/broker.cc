@@ -34,7 +34,7 @@ namespace capy::amqp {
       AMQP::Envelope envelope(static_cast<char*>((void *)data.data()), static_cast<uint64_t>(data.size()));
       envelope.setDeliveryMode(2);
 
-      auto channel = connection_pool_->get_channel();
+      auto channel = connection_pool_->new_channel();
 
       std::promise<std::string> publish_barrier;
 
@@ -60,7 +60,6 @@ namespace capy::amqp {
     }
 
 
-
     ///
     /// MARK: - fetch
     ///
@@ -71,25 +70,23 @@ namespace capy::amqp {
 
       auto deferred = std::make_shared<capy::amqp::DeferredFetch>();
 
-      std::promise<void> ready_barrier;
-
-      auto channel = connection_pool_->get_channel();
-
-      channel->onReady([&ready_barrier](){
-          ready_barrier.set_value();
-      });
-
-      ready_barrier.get_future().wait();
+      auto channel = connection_pool_->new_channel();
 
       std::promise<std::string> declare_barrier;
+      auto declare_barrier_value = declare_barrier.get_future();
 
       channel
 
               ->declareQueue(AMQP::exclusive | AMQP::autodelete)
 
               .onSuccess(
-                      [&declare_barrier
-                      ](const std::string &name, uint32_t messagecount, uint32_t consumercount) {
+                      [
+                              &declare_barrier
+                      ]
+                              (const std::string &name, uint32_t messagecount, uint32_t consumercount) {
+                          (void) consumercount;
+                          (void) messagecount;
+
 
                           declare_barrier.set_value(name);
 
@@ -100,7 +97,14 @@ namespace capy::amqp {
                   deferred->report_error(Error(BrokerError::QUEUE_DECLARATION, message));
               });
 
-      auto name = declare_barrier.get_future().get();
+      if (declare_barrier_value.wait_for(std::chrono::seconds(1)) == std::future_status::timeout ){
+        capy::dispatchq::main::async([&deferred]{
+            deferred->report_error(Error(BrokerError::QUEUE_DECLARATION, "time out"));
+        });
+        return *deferred;
+      }
+
+      auto name = declare_barrier_value.get();
 
       if (name.empty()) {
         return *deferred;
@@ -116,37 +120,70 @@ namespace capy::amqp {
 
       channel
 
-              ->consume(envelope.replyTo(), AMQP::noack)
+              ->consume(name, AMQP::noack)
 
-              .onReceived([deferred, this](
+              .onReceived([deferred, &channel, name, this](
 
                       const AMQP::Message &message,
                       uint64_t deliveryTag,
                       bool redelivered) {
 
+                  (void) deliveryTag;
+                  (void) redelivered;
+
                   std::vector<std::uint8_t> buffer(
                           static_cast<std::uint8_t *>((void*)message.body()),
                           static_cast<std::uint8_t *>((void*)message.body()) + message.bodySize());
 
-                  capy::json received = json::from_msgpack(buffer);
+                  capy::json received;
 
-                  capy::amqp::Task::Instance().async([received, deferred]{
-                      deferred->report_data(received);
-                  });
+                  try {
+                    received = json::from_msgpack(buffer);
+                  }
+                  catch (std::exception& exception) {
+                    deferred->report_error(Error(BrokerError::DATA_RESPONSE, exception.what()));
+                  }
+                  catch (...) {
+                    deferred->report_error(Error(BrokerError::DATA_RESPONSE, "unknown error"));
+                  }
+
+                  //capy::amqp::Task::Instance().async([received, deferred]{
+                  try {
+                    deferred->report_data(received);
+
+                  }
+                  catch (json::exception &exception) {
+                    ///
+                    /// Some programmatic exception is not processing properly
+                    ///
+
+                    throw_abort(exception.what());
+                  }
+                  catch (...) {
+                    throw_abort("Unexpected exception...");
+                  }
+                  //});
 
               })
 
               .onError([deferred](const char *message) {
-
                   deferred->report_error(Error(BrokerError::DATA_RESPONSE, message));
+              })
 
+              .onFinalize([channel](){
+                  //
+                  // lock channel_ until message receiving
+                  //
+                  (void) channel;
               });
 
       channel->startTransaction();
 
-      channel->publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory);
+      channel
+              ->publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory);
 
-      channel->commitTransaction()
+      channel
+              ->commitTransaction()
               .onError([deferred](const char *message) {
                   deferred->report_error(Error(BrokerError::PUBLISH, message));
               });
@@ -164,7 +201,7 @@ namespace capy::amqp {
 
       connection_pool_->set_deferred(deferred);
 
-      auto channel = connection_pool_->get_channel();
+      auto channel = connection_pool_->get_default_channel();
 
       channel->onError([deferred](const char *message) {
           deferred->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, message));
@@ -211,6 +248,8 @@ namespace capy::amqp {
                       uint64_t deliveryTag,
                       bool redelivered) {
 
+                  (void) redelivered;
+
                   std::vector<std::uint8_t> buffer(
                           static_cast<std::uint8_t *>((void*)message.body()),
                           static_cast<std::uint8_t *>((void*)message.body()) + message.bodySize());
@@ -254,7 +293,7 @@ namespace capy::amqp {
 
                           envelope.setCorrelationID(cid);
 
-                          auto channel = connection_pool_->get_channel();
+                          auto channel = connection_pool_->get_default_channel();
 
                           channel->startTransaction();
 
@@ -271,11 +310,9 @@ namespace capy::amqp {
                           /// Some programmatic exception is not processing properly
                           ///
 
-                          std::lock_guard lock(mutex_);
                           throw_abort(exception.what());
                         }
                         catch (...) {
-                          std::lock_guard lock(mutex_);
                           throw_abort("Unexpected exception...");
                         }
                     });
@@ -283,12 +320,10 @@ namespace capy::amqp {
                   }
 
                   catch (json::exception &exception) {
-                    std::lock_guard lock(mutex_);
                     deferred->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, exception.what()));
                   }
                   catch (...) {
-                    std::lock_guard lock(mutex_);
-                    deferred->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, "Unexpected exception..."));
+                    deferred->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, "unknown error"));
                   }
 
               })
@@ -297,8 +332,6 @@ namespace capy::amqp {
                   deferred->report_error(capy::Error(BrokerError::QUEUE_CONSUMING, message));
               });
 
-
       return *deferred;
-
     }
 }
