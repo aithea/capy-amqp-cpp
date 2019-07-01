@@ -52,6 +52,8 @@ namespace capy::amqp {
 
       auto error = publish_barrier.get_future().get();
 
+      delete channel;
+
       if (!error.empty()){
         return Error(amqp::BrokerError::PUBLISH, error);
       }
@@ -68,9 +70,9 @@ namespace capy::amqp {
             const capy::json &message,
             const std::string &routing_key) {
 
-      auto deferred = std::make_shared<capy::amqp::DeferredFetch>();
-
       auto channel = connection_pool_->new_channel();
+
+      auto deferred = std::make_shared<capy::amqp::DeferredFetch>();
 
       std::promise<std::string> declare_barrier;
       auto declare_barrier_value = declare_barrier.get_future();
@@ -98,9 +100,7 @@ namespace capy::amqp {
               });
 
       if (declare_barrier_value.wait_for(std::chrono::seconds(1)) == std::future_status::timeout ){
-        capy::dispatchq::main::async([&deferred]{
-            deferred->report_error(Error(BrokerError::QUEUE_DECLARATION, "time out"));
-        });
+        deferred->report_error(Error(BrokerError::QUEUE_DECLARATION, "time out"));
         return *deferred;
       }
 
@@ -122,7 +122,7 @@ namespace capy::amqp {
 
               ->consume(name, AMQP::noack)
 
-              .onReceived([deferred, &channel, name, this](
+              .onReceived([deferred, name, channel](
 
                       const AMQP::Message &message,
                       uint64_t deliveryTag,
@@ -132,25 +132,23 @@ namespace capy::amqp {
                   (void) redelivered;
 
                   std::vector<std::uint8_t> buffer(
-                          static_cast<std::uint8_t *>((void*)message.body()),
-                          static_cast<std::uint8_t *>((void*)message.body()) + message.bodySize());
+                          static_cast<std::uint8_t *>((void *) message.body()),
+                          static_cast<std::uint8_t *>((void *) message.body()) + message.bodySize());
 
                   capy::json received;
 
                   try {
                     received = json::from_msgpack(buffer);
                   }
-                  catch (std::exception& exception) {
+                  catch (std::exception &exception) {
                     deferred->report_error(Error(BrokerError::DATA_RESPONSE, exception.what()));
                   }
                   catch (...) {
                     deferred->report_error(Error(BrokerError::DATA_RESPONSE, "unknown error"));
                   }
 
-                  //capy::amqp::Task::Instance().async([received, deferred]{
                   try {
                     deferred->report_data(received);
-
                   }
                   catch (json::exception &exception) {
                     ///
@@ -162,20 +160,15 @@ namespace capy::amqp {
                   catch (...) {
                     throw_abort("Unexpected exception...");
                   }
-                  //});
 
+                  delete channel;
               })
 
-              .onError([deferred](const char *message) {
+              .onError([deferred, channel](const char *message) {
+                  delete channel;
                   deferred->report_error(Error(BrokerError::DATA_RESPONSE, message));
-              })
-
-              .onFinalize([channel](){
-                  //
-                  // lock channel_ until message receiving
-                  //
-                  (void) channel;
               });
+
 
       channel->startTransaction();
 
@@ -293,7 +286,7 @@ namespace capy::amqp {
 
                           envelope.setCorrelationID(cid);
 
-                          auto channel = connection_pool_->get_default_channel();
+                          auto channel = connection_pool_->new_channel();
 
                           channel->startTransaction();
 
@@ -303,6 +296,8 @@ namespace capy::amqp {
                                   .onError([deferred](const char *message) {
                                       deferred->report_error(capy::Error(BrokerError::PUBLISH, message));
                                   });
+
+                          delete channel;
                         }
 
                         catch (json::exception &exception) {

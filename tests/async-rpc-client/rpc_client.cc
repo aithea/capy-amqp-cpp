@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 #include "capy/amqp.h"
 
+#define CAPY_RPC_TEST_COUNT 1000
 #define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
 #define CAPY_RPC_TEST_ASYNC 1
 
@@ -29,28 +30,27 @@ TEST(Exchange, AsyncFetchTest) {
     return;
   }
 
-  int max_count = 1000;
-
-  capy::json action;
+  int max_count = CAPY_RPC_TEST_COUNT;
 
   for (int i = 0; i < max_count ; ++i) {
 
     std::string timestamp = std::to_string(time(0));
 
+#if CAPY_RPC_TEST_ASYNC == 1
+    capy::dispatchq::main::async([&broker, timestamp, max_count, i](){
+#endif
+
+    //
+    // async non-block fetching messages
+    //
+
+    capy::json action;
     action["action"] = "echo";
     action["payload"] = {{"ids", timestamp}, {"timestamp", timestamp}, {"i", i}};
 
     std::string key = "echo.ping";
 
     std::cout << " fetch["<<i<<"]: " << key << std::endl;
-
-#if CAPY_RPC_TEST_ASYNC == 1
-    capy::dispatchq::main::async([&broker, action, key, max_count, i](){
-#endif
-
-    //
-    // async non-block fetching messages
-    //
 
     broker->fetch(action, key)
 

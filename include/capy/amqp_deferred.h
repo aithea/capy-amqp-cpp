@@ -38,7 +38,6 @@ namespace capy::amqp {
 
         const Deferred &report_data(Types... parameters) const {
           if (*this && data_handler_) data_handler_.value()(parameters...);
-
           return *this;
         }
 

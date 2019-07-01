@@ -124,18 +124,16 @@ namespace capy::amqp {
           connections_.get(id)->set_deferred(aDeferred);
         }
 
-
-        std::shared_ptr<Channel> new_channel() {
+        Channel* new_channel() {
           auto id = std::this_thread::get_id();
 
           if (!connections_.has(id)) {
             auto _connection = std::make_shared<Connection>(address_);
             connections_.set(id, _connection);
-            return std::shared_ptr<Channel>(new Channel(_connection->get_conection()));
+            return new Channel(_connection->get_conection());
           }
           else {
-            return std::shared_ptr<Channel>(new Channel(connections_.get(id)->get_conection()));
-
+            return new Channel(connections_.get(id)->get_conection());
           }
         }
 
