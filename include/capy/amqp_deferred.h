@@ -36,6 +36,10 @@ namespace capy::amqp {
           return !failed_;
         }
 
+        /**
+         * @todo: prepare stack-like reporting
+         */
+
         const Deferred &report_data(Types... parameters) const {
           if (*this && data_handler_) data_handler_.value()(parameters...);
           return *this;

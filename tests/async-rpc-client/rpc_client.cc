@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 #include "capy/amqp.h"
 
-#define CAPY_RPC_TEST_COUNT 1000
+#define CAPY_RPC_TEST_COUNT 10000
 #define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
 #define CAPY_RPC_TEST_ASYNC 1
 

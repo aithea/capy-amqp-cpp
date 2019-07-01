@@ -110,6 +110,7 @@ namespace capy::amqp {
         return *deferred;
       }
 
+      {
       auto data = json::to_msgpack(message);
 
       AMQP::Envelope envelope(static_cast<char*>((void *)data.data()), static_cast<uint64_t>(data.size()));
@@ -117,6 +118,20 @@ namespace capy::amqp {
       envelope.setDeliveryMode(2);
       envelope.setCorrelationID(create_unique_id());
       envelope.setReplyTo(name);
+
+
+      channel->startTransaction();
+
+      channel
+              ->publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory);
+
+      channel
+              ->commitTransaction()
+              .onError([deferred](const char *message) {
+                  deferred->report_error(Error(BrokerError::PUBLISH, message));
+              });
+
+      }
 
       channel
 
@@ -164,21 +179,13 @@ namespace capy::amqp {
                   delete channel;
               })
 
+              .onSuccess([deferred]{
+                  deferred->report_success();
+              })
+
               .onError([deferred, channel](const char *message) {
                   delete channel;
                   deferred->report_error(Error(BrokerError::DATA_RESPONSE, message));
-              });
-
-
-      channel->startTransaction();
-
-      channel
-              ->publish(exchange_name_, routing_key, envelope, AMQP::autodelete|AMQP::mandatory);
-
-      channel
-              ->commitTransaction()
-              .onError([deferred](const char *message) {
-                  deferred->report_error(Error(BrokerError::PUBLISH, message));
               });
 
       return *deferred;
@@ -321,6 +328,10 @@ namespace capy::amqp {
                     deferred->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, "unknown error"));
                   }
 
+              })
+
+              .onSuccess([deferred]{
+                  deferred->report_success();
               })
 
               .onError([deferred](const char *message) {

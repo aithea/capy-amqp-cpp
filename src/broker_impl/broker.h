@@ -162,8 +162,9 @@ namespace capy::amqp {
     class BrokerImpl {
         friend class Broker;
 
-    protected:
+    private:
 
+        mutable std::mutex mutex_;
         std::string exchange_name_;
         std::unique_ptr<ConnectionPool> connection_pool_;
 
