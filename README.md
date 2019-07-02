@@ -116,110 +116,88 @@ $ make; sudo make install
     /*
     * Слушать очередь "broker-test" с ключами топиков "something.find", "anywhere.thing"
     */
-     broker->listen(
-                    "capy-test",
-                    {"something.find","anywhere.thing"},
-                    /* 
-                    * Асинхронное замыкание ожидания запроса.
-                    * В запрос выбрасывается expected-объект: либо json, либо ошибка запроса (например в момент обработки было разорвано соединение)
-                    */
-                    [&](const capy::Result<capy::json>& message,
-                    /*
-                    * Замыкание в случае успеха должно заполнить ответ  
-                    */
-                        capy::Result<capy::json>& replay)
-                    {
     
-                        /* проверить сообщение и обработать ощибку */
-                        if (!message) {
-                          std::cerr << " listen error: " << message.error().value() << "/" << message.error().message() << std::endl;
-                        }
-                        else {
-                          std::cout << " listen["<< counter << "] received: " << message.value().dump(4) << std::endl;
-                          replay.value() = {"reply", true, time(0)};
-                        }
-                    });
-     int error_state = static_cast<int>(capy::amqp::CommonError::OK);
+    int error_state = static_cast<int>(capy::amqp::CommonError::OK);
     
-      do {
-        
-        capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address);
+    do {
     
-        EXPECT_TRUE(broker);
+    capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address);
     
-        if (!broker) {
-          //
-          // Процессинг ощибки биндинга брокера с обменником AMQP
-          // broker.error().value() / broker.error().message()
-          //
-          return;
-        }
+    EXPECT_TRUE(broker);
     
-        std::promise<int> error_state_connection;
+    if (!broker) {
+      //
+      // Процессинг ощибки биндинга брокера с обменником AMQP
+      // broker.error().value() / broker.error().message()
+      //
+      return;
+    }
     
-        broker->listen("capy-test", {"something.find","anywhere.thing"})
+    std::promise<int> error_state_connection;
     
-                .on_data([](const capy::amqp::Request &request, capy::amqp::Replay &replay) {
+    broker->listen("capy-test", {"something.find","anywhere.thing"})
     
-                    if (request) {
-                        //
-                        // процессинг корректного результата запроса
-                        //  
-                        // request->message.dump() / request->routing_key
-                        //    
-                        
-                        ...                                            
-                        
-                        //
-                        // Сформировать либо ответ либо ошибку
-                        //
-                        
-                        if (/* какая-то логическая ощибка формирования ответа */) {
-                            replay = capy::make_unexpected(capy::Error(
-                                                    capy::amqp::BrokerError::DATA_RESPONSE,
-                                                    capy::error_string("some error...")));
-                         }
-                         else {
-                            //
-                            // Запрос корректо обработан отсылаем данные
-                            //
-                            replay.value() = {"data", "some data..."};
-                         }              
-                     
-                    } else {
-                        //
-                        // Процессинг некорректного запроса
-                        //
-                            
-                        capy::workspace::Logger::log->critical("Router: amqp broker error: {}", request.error().message());
-
-                        replay = capy::make_unexpected(request.error());
-                    }
-                })
+            .on_data([](const capy::amqp::Request &request, capy::amqp::Replay &replay) {
     
-                .on_success([] {
+                if (request) {
                     //
-                    // Препроцессинг успешного формирования процесса обработки
+                    // процессинг корректного результата запроса
+                    //  
+                    // request->message.dump() / request->routing_key
                     //    
-                })
-    
-                .on_error([&error_state_connection](const capy::Error &error) {
+                    
+                    ...                                            
                     
                     //
-                    // Пример восстановления биндинга с обменнником при возникновении системной ощибки
-                    // (но моюно и отвалиться... )
+                    // Сформировать либо ответ либо ошибку
                     //
-                    try {
-                      error_state_connection.set_value(static_cast<int>(error.value()));
-                    }catch (...){}
-    
-                });
-    
-    
-        error_state = error_state_connection.get_future().get();
-        
-      } while (error_state != static_cast<int>(capy::amqp::CommonError::OK));
+                    
+                    if (/* какая-то логическая ощибка формирования ответа */) {
+                        replay = capy::make_unexpected(capy::Error(
+                                                capy::amqp::BrokerError::DATA_RESPONSE,
+                                                capy::error_string("some error...")));
+                     }
+                     else {
+                        //
+                        // Запрос корректо обработан отсылаем данные
+                        //
+                        replay.value() = {"data", "some data..."};
+                     }              
+                 
+                } else {
+                    //
+                    // Процессинг некорректного запроса
+                    //
                         
+                    capy::workspace::Logger::log->critical("Router: amqp broker error: {}", request.error().message());
+    
+                    replay = capy::make_unexpected(request.error());
+                }
+            })
+    
+            .on_success([] {
+                //
+                // Препроцессинг успешного формирования процесса обработки
+                //    
+            })
+    
+            .on_error([&error_state_connection](const capy::Error &error) {
+                
+                //
+                // Пример восстановления биндинга с обменнником при возникновении системной ощибки
+                // (но моюно и отвалиться... )
+                //
+                try {
+                  error_state_connection.set_value(static_cast<int>(error.value()));
+                }catch (...){}
+    
+            });
+    
+    
+    error_state = error_state_connection.get_future().get();
+    
+    } while (error_state != static_cast<int>(capy::amqp::CommonError::OK));
+                    
   
 ```
 
