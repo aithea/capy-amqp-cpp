@@ -10,6 +10,10 @@
 #include <optional>
 #include <condition_variable>
 
+/***
+ * TODO: pool channeling... 
+ */
+
 namespace capy {
 
     template<typename T> class Pool;

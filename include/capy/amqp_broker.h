@@ -96,7 +96,6 @@ namespace capy::amqp {
          * @param on_data messaging handling
          * @return error or ok
          */
-        //DeferredFetch& fetch(const json& message, const std::string& routing_key, const FetchHandler& on_data);
         DeferredFetch& fetch(const json& message, const std::string& routing_key);
 
         /**

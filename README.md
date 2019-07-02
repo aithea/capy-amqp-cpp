@@ -141,6 +141,87 @@ $ make; sudo make install
                           replay.value() = {"reply", true, time(0)};
                         }
                     });
+     int error_state = static_cast<int>(capy::amqp::CommonError::OK);
+    
+      do {
+        
+        capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address);
+    
+        EXPECT_TRUE(broker);
+    
+        if (!broker) {
+          //
+          // Процессинг ощибки биндинга брокера с обменником AMQP
+          // broker.error().value() / broker.error().message()
+          //
+          return;
+        }
+    
+        std::promise<int> error_state_connection;
+    
+        broker->listen("capy-test", {"something.find","anywhere.thing"})
+    
+                .on_data([](const capy::amqp::Request &request, capy::amqp::Replay &replay) {
+    
+                    if (request) {
+                        //
+                        // процессинг корректного результата запроса
+                        //  
+                        // request->message.dump() / request->routing_key
+                        //    
+                        
+                        ...                                            
+                        
+                        //
+                        // Сформировать либо ответ либо ошибку
+                        //
+                        
+                        if (/* какая-то логическая ощибка формирования ответа */) {
+                            replay = capy::make_unexpected(capy::Error(
+                                                    capy::amqp::BrokerError::DATA_RESPONSE,
+                                                    capy::error_string("some error...")));
+                         }
+                         else {
+                            //
+                            // Запрос корректо обработан отсылаем данные
+                            //
+                            replay.value() = {"data", "some data..."};
+                         }              
+                     
+                    } else {
+                        //
+                        // Процессинг некорректного запроса
+                        //
+                            
+                        capy::workspace::Logger::log->critical("Router: amqp broker error: {}", request.error().message());
+
+                        replay = capy::make_unexpected(request.error());
+                    }
+                })
+    
+                .on_success([] {
+                    //
+                    // Препроцессинг успешного формирования процесса обработки
+                    //    
+                })
+    
+                .on_error([&error_state_connection](const capy::Error &error) {
+                    
+                    //
+                    // Пример восстановления биндинга с обменнником при возникновении системной ощибки
+                    // (но моюно и отвалиться... )
+                    //
+                    try {
+                      error_state_connection.set_value(static_cast<int>(error.value()));
+                    }catch (...){}
+    
+                });
+    
+    
+        error_state = error_state_connection.get_future().get();
+        
+      } while (error_state != static_cast<int>(capy::amqp::CommonError::OK));
+                        
   
 ```
 
@@ -164,32 +245,34 @@ $ make; sudo make install
     };
 
     /*
-    * Отправка action через брокер 
+    * Асинхронная отправка action через брокер 
     */
-    if (auto error = broker->fetch(action, "something.find",
-        /*
-        * Асинхронный блок ответа от сервиса 
-        */ 
-        [&](const capy::Result<capy::json> &message){    
-    
-        /*
-        * Обработка ошибки ответа
-        */
-        if (!message){        
-            std::cerr << "amqp broker fetch receiving error: " << message.error().value() << " / " << message.error().message()
-                  << std::endl;        
-        }
-        else {
-            /*
-            * Обработка валидного ответа
-            */
-            std::cout << "fetch["<< i << "] received: " <<  message->dump(4) << std::endl;
-        }        
-    
-    })) {
-        
-        std::cerr << "amqp broker fetch error: " << error.value() << " / " << error.message()
-              << std::endl;
-        
-    }
+    broker->fetch(action, "somthing.find")
+   
+               .on_data([](const capy::amqp::Response &response){
+   
+                   if (response){
+                        //
+                        // процессинг корректного результата ответа
+                        //  
+                        // response->dump() / response.value().dump()...
+                        //                   
+                   }
+                   else {
+                        //
+                        // процессинг ошибки ответа
+                        //  
+                        // response.error().value() / response.error().message()
+                        //
+                   }
+  
+               })
+   
+               .on_error([](const capy::Error& error){
+                        //
+                        // процессинг системной ощибки: потеря соединения,
+                        // лимит коннектов, каналов, размера очереди и тп... 
+                        // - error().value() / error().message()
+                        //                   
+               });
 ```

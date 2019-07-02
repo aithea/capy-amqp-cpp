@@ -24,6 +24,13 @@ namespace capy {
      */
     typedef nlohmann::json json;
 
+    struct Error;
+
+    /***
+     * Error handler spec
+     */
+    using ErrorHandler  = std::function<void(const Error &error)>;
+
     /***
      * Common Error handler
      */
@@ -35,10 +42,6 @@ namespace capy {
          * @param message exception string
          */
         Error(const std::error_condition code, const std::optional<std::string>& message = std::nullopt);
-
-        //Error(const Error&) = default;
-        //Error(Error &&) = default;
-        //Error &operator=(const Error&)  = default;
 
         /***
          * Get the error value

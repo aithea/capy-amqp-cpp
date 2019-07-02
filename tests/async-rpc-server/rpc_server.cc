@@ -43,7 +43,7 @@ TEST(Exchange, AsyncListenTest) {
       return;
     }
 
-    std::promise<int> error_state_conection;
+    std::promise<int> error_state_connection;
 
     broker->listen("capy-test", {"echo.ping"})
 
@@ -81,7 +81,7 @@ TEST(Exchange, AsyncListenTest) {
 
                   } else {
 
-                    replay.value() = {"reply", true, counter, r};
+                      replay.value() = {"reply", true, counter, r};
 
                   }
 
@@ -106,20 +106,20 @@ TEST(Exchange, AsyncListenTest) {
 
             })
 
-            .on_error([&error_state_conection](const capy::Error &error) {
+            .on_error([&error_state_connection](const capy::Error &error) {
 
                 std::cout << "Deferred: on_error: " << error.value()
                           << "(" << static_cast<int>(capy::amqp::BrokerError::CONNECTION_LOST) << ")/"
                           << error.message() << std::endl;
 
                 try {
-                  error_state_conection.set_value(static_cast<int>(error.value()));
+                  error_state_connection.set_value(static_cast<int>(error.value()));
                 }catch (...){}
 
             });
 
 
-    error_state = error_state_conection.get_future().get();
+    error_state = error_state_connection.get_future().get();
 
     std::cout << " ... error_state connection: " << error_state << std::endl;
 

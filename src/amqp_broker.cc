@@ -33,7 +33,7 @@ namespace capy::amqp {
         auto impl = std::make_shared<BrokerImpl>();
 
         impl->exchange_name_ = exchange_name;
-        impl->connection_pool_ = std::make_unique<ConnectionPool>(address);
+        impl->connection_pool_ = std::make_unique<ConnectiCache>(address);
 
         auto channel = impl->connection_pool_->get_default_channel();
 
@@ -57,7 +57,7 @@ namespace capy::amqp {
         if(!error.empty()) {
           return capy::make_unexpected(
                   capy::Error(BrokerError::EXCHANGE_DECLARATION,
-                              error_string("ConnectionPool has been closed: %s", error.c_str())));
+                              error_string("ConnectiCache has been closed: %s", error.c_str())));
         }
 
         return Broker(impl);
@@ -112,7 +112,7 @@ namespace capy::amqp {
     std::string BrokerErrorCategory::message(int ev) const {
       switch (ev) {
         case static_cast<int>(BrokerError::CONNECTION):
-          return "ConnectionPool error";
+          return "ConnectiCache error";
         default:
           return ErrorCategory::message(ev);
       }

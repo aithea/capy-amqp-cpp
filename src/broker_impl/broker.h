@@ -101,13 +101,13 @@ namespace capy::amqp {
 
     };
 
-    class ConnectionPool {
+    class ConnectiCache {
 
         capy::Cache<std::thread::id, Connection> connections_;
         capy::amqp::Address address_;
 
     public:
-        ConnectionPool(
+        ConnectiCache(
                 const capy::amqp::Address &address):
                 address_(address)
         {}
@@ -155,8 +155,8 @@ namespace capy::amqp {
           return _channel;
         }
 
-        ConnectionPool(const ConnectionPool& ) = delete;
-        ConnectionPool(ConnectionPool&& ) = delete;
+        ConnectiCache(const ConnectiCache& ) = delete;
+        ConnectiCache(ConnectiCache&& ) = delete;
     };
 
     class BrokerImpl {
@@ -166,7 +166,7 @@ namespace capy::amqp {
 
         mutable std::mutex mutex_;
         std::string exchange_name_;
-        std::unique_ptr<ConnectionPool> connection_pool_;
+        std::unique_ptr<ConnectiCache> connection_pool_;
 
     public:
         BrokerImpl(){};

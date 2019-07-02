@@ -15,23 +15,54 @@
 
 namespace capy::amqp {
 
-    using ErrorHandler  = std::function<void(const Error &error)>;
-
+    /***
+     * Deferred handlers object
+     * @tparam Types
+     */
     template<class ... Types>
     class Deferred {
     public:
 
         using VoidHandler      = std::function<void()>;
+
+        /***
+         * Data handler prototype
+         */
         using DataHandler      = std::function<void(Types... parameters)>;
+
+        /***
+         * Success handler prototype
+         */
         using SuccessHandler   = VoidHandler;
+
+        /***
+         * Finalize handler prototype
+         */
         using FinalizeHandler  = VoidHandler;
 
+        /***
+         * Create Deferred object with error state
+         * @param error - error state
+         */
         Deferred(const Error &error = Error(CommonError::OK)) : error_(error) {}
 
+        /***
+         * Copy constructor
+         * @param that
+         */
         Deferred(const Deferred &that) = default;
 
+        /***
+         * Replacer
+         * @param that
+         */
         Deferred(Deferred &&that) = default;
 
+        /***
+         *
+         * Check a statee of the deferred object
+         * @return true or false
+         */
         operator bool() const {
           return !failed_;
         }
@@ -40,17 +71,31 @@ namespace capy::amqp {
          * @todo: prepare stack-like reporting
          */
 
+        /***
+         * Report data if they received
+         * @param parameters
+         * @return the object
+         */
         const Deferred &report_data(Types... parameters) const {
           if (*this && data_handler_) data_handler_.value()(parameters...);
           return *this;
         }
 
+        /***
+         * Reports success if data receiving has done succesfuly
+         * @return the object
+         */
         const Deferred &report_success() {
           failed_ = false;
           if (success_handler_) success_handler_.value()();
           return *this;
         }
 
+        /***
+         * Report error if some error occured
+         * @param error
+         * @return the object
+         */
         const Deferred &report_error(const Error &error) {
           error_ = error;
           if (error_) {
@@ -61,21 +106,41 @@ namespace capy::amqp {
           return *this;
         }
 
+        /***
+         * Deferred call on data event
+         * @param callback
+         * @return the object
+         */
         Deferred &on_data(const DataHandler &callback) {
           data_handler_ = callback;
           return *this;
         }
 
+        /***
+         * Deferred call on success event
+         * @param callback
+         * @return the object
+         */
         Deferred &on_success(const SuccessHandler &callback) {
           success_handler_ = callback;
           return *this;
         }
 
+        /***
+         * Error handler on error event
+         * @param callback
+         * @return the object
+         */
         Deferred &on_error(const ErrorHandler &callback) {
           error_handler_ = callback;
           return *this;
         }
 
+        /***
+         * it calls in any case at the end
+         * @param callback
+         * @return the object
+         */
         Deferred &on_finalize(const FinalizeHandler &callback) {
           finalize_handler_ = callback;
           return *this;
