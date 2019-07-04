@@ -85,13 +85,13 @@ namespace capy::amqp {
         static Result <Broker> Bind(
                 const Address& address,
                 const std::string& exchange_name){
-          return Broker::Bind(address,  exchange_name, [](const Error& error){});
+          return Broker::Bind(address,  exchange_name, [](const Error& error){(void)error;});
         }
 
         static Result <Broker> Bind(
                 const Address& address,
-                const ErrorHandler& on_error = [](const Error& error){}){
-          return Broker::Bind(address,  "amq.topic", on_error);
+                const ErrorHandler& on_error = [](const Error& error){(void)error;}){
+          return Broker::Bind(address, "amq.topic", on_error);
         }
 
         /***

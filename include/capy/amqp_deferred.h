@@ -46,9 +46,7 @@ namespace capy::amqp {
          * Create Deferred object with error state
          * @param error - error state
          */
-
-        Deferred(const std::shared_ptr<Channel>& channel = nullptr,  const Error &error = Error(CommonError::OK)):
-                channel_(channel),
+        Deferred(const Error &error = Error(CommonError::OK)):
                 error_(error) {}
 
         /***
@@ -150,11 +148,7 @@ namespace capy::amqp {
           finalize_handler_ = callback;
           return *this;
         }
-
-        Channel& get_channel() const {
-          return *channel_;
-        }
-
+        
         /**
         *  Destructor
         */
@@ -171,7 +165,6 @@ namespace capy::amqp {
         std::optional<FinalizeHandler> finalize_handler_ = std::nullopt;
 
     private:
-        std::shared_ptr<Channel> channel_;
         Error error_;
         bool failed_;
 
@@ -183,7 +176,6 @@ namespace capy::amqp {
         }
     };
 
-
     /***
     * Fetcher handling request
     */
@@ -193,5 +185,4 @@ namespace capy::amqp {
     * Listener handling action request and replies
     */
     using DeferredListen = Deferred<const Request &, Replay &>;
-
 }

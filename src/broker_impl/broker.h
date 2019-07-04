@@ -47,9 +47,7 @@ namespace capy::amqp {
         typedef AMQP::TcpChannel __TcpChannel;
     public:
         using __TcpChannel::__TcpChannel;
-        virtual ~Channel() override {
-        }
-
+        virtual ~Channel() override {}
     };
 
 
@@ -86,6 +84,9 @@ namespace capy::amqp {
         Connection(Connection&& ) = delete;
 
     };
+
+    class DeferredFetching;
+    class DeferredListening;
 
     class ConnectionCache {
 
@@ -165,8 +166,8 @@ namespace capy::amqp {
         std::string exchange_name_;
         std::shared_ptr<uv_loop_t> loop_;
         std::unique_ptr<ConnectionCache> connections_;
-        capy::Cache<std::string, DeferredFetch> fetchers_;
-        capy::Cache<std::string, DeferredListen> listeners_;
+        capy::Cache<std::string, DeferredFetching> fetchers_;
+        capy::Cache<std::string, DeferredListening> listeners_;
         std::thread thread_loop_;
 
     public:

@@ -4,6 +4,7 @@
 
 #include "broker.h"
 #include "capy/amqp_common.h"
+#include "../deferred_mpl/deferred.h"
 
 #include <condition_variable>
 #include <sstream>
@@ -106,7 +107,7 @@ namespace capy::amqp {
       auto correlation_id = create_unique_id();
 
       fetchers_.set(correlation_id,
-                    std::make_shared<capy::amqp::DeferredFetch>(std::unique_ptr<Channel>(connections_->new_channel())));
+                    std::make_shared<capy::amqp::DeferredFetching>(connections_.get()));
 
       auto  deferred = fetchers_.get(correlation_id).get();
       auto& channel = deferred->get_channel();
@@ -168,8 +169,6 @@ namespace capy::amqp {
                                               static_cast<std::uint8_t *>((void *) message.body()) + message.bodySize());
 
                                       capy::json received;
-
-                                      //auto  deferred = fetchers_.get(correlation_id).get();
 
                                       try {
                                         received = json::from_msgpack(buffer);
@@ -234,7 +233,7 @@ namespace capy::amqp {
       auto correlation_id = create_unique_id();
 
       listeners_.set(correlation_id,
-                     std::make_shared<capy::amqp::DeferredListen>(std::unique_ptr<Channel>(connections_->new_channel())));
+                     std::make_shared<capy::amqp::DeferredListening>(connections_.get()));
 
       auto deferred = listeners_.get(correlation_id);
 

@@ -9,7 +9,7 @@
 #include <cstdlib>
 
 #define CAPY_RPC_TEST_EMULATE_COMPUTATION 1
-#define CAPY_RPC_TEST_EMULATE_ERROR 0
+#define CAPY_RPC_TEST_EMULATE_ERROR 1
 
 TEST(Exchange, AsyncListenTest) {
 
@@ -34,7 +34,8 @@ TEST(Exchange, AsyncListenTest) {
     std::cout << " ... error_state: " << error_state << std::endl;
 
     capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address, [](const capy::Error& error){
-
+        std::cerr << "amqp broker error: " << error.value() << " / " << error.message()
+                  << std::endl;
     });
 
     EXPECT_TRUE(broker);

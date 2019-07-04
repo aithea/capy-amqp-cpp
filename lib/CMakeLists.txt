@@ -31,6 +31,7 @@ FILE(GLOB INCLUDE_FILES
 FILE(GLOB SOURCES
         ../src/*.cc
         ../src/broker_impl/*.cc
+        ../src/deferred_mpl/*.cc
         )
 
 add_library(
