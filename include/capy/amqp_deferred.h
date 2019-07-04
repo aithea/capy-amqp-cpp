@@ -46,28 +46,10 @@ namespace capy::amqp {
          * Create Deferred object with error state
          * @param error - error state
          */
-//        Deferred(std::unique_ptr<Channel>&& channel = nullptr,  const Error &error = Error(CommonError::OK)):
-//                channel_(std::move(channel)),
-//                error_(error) {}
 
         Deferred(const std::shared_ptr<Channel>& channel = nullptr,  const Error &error = Error(CommonError::OK)):
                 channel_(channel),
                 error_(error) {}
-
-        Deferred(Channel* channel = nullptr,  const Error &error = Error(CommonError::OK)):
-                default_channel_(channel),
-                error_(error) {}
-
-
-
-//        Deferred(Channel* channel = 0,  const Error &error = Error(CommonError::OK)):
-//                channel_(std::move(channel)),
-//                error_(error) {}
-
-//        Deferred(Channel* channel = nullptr,  const Error &error = Error(CommonError::OK)):
-//                channel_(channel),
-//                error_(error) {}
-
 
         /***
          * Copy constructor
@@ -100,7 +82,6 @@ namespace capy::amqp {
          * @return the object
          */
         const Deferred &report_data(Types... parameters) const {
-          //std::lock_guard lock(mutex_);
           if (*this && data_handler_) data_handler_.value()(parameters...);
           return *this;
         }
@@ -110,7 +91,6 @@ namespace capy::amqp {
          * @return the object
          */
         const Deferred &report_success() {
-          //std::lock_guard lock(mutex_);
           failed_ = false;
           if (success_handler_) success_handler_.value()();
           return *this;
@@ -122,7 +102,6 @@ namespace capy::amqp {
          * @return the object
          */
         const Deferred &report_error(const Error &error) {
-          //std::lock_guard lock(mutex_);
           error_ = error;
           if (error_) {
             failed_ = true;
@@ -138,7 +117,6 @@ namespace capy::amqp {
          * @return the object
          */
         Deferred &on_data(const DataHandler &callback) {
-          //std::lock_guard lock(mutex_);
           data_handler_ = callback;
           return *this;
         }
@@ -149,9 +127,7 @@ namespace capy::amqp {
          * @return the object
          */
         Deferred &on_success(const SuccessHandler &callback) {
-          //std::lock_guard lock(mutex_);
           success_handler_ = callback;
-          //if (channel_) delete channel_;
           return *this;
         }
 
@@ -161,9 +137,7 @@ namespace capy::amqp {
          * @return the object
          */
         Deferred &on_error(const ErrorHandler &callback) {
-          //std::lock_guard lock(mutex_);
           error_handler_ = callback;
-          std::cout << " ... set :::: on_error("<<this<<") " << error_handler_.has_value() << std::endl;
           return *this;
         }
 
@@ -178,23 +152,17 @@ namespace capy::amqp {
         }
 
         Channel& get_channel() const {
-          return channel_ ? *channel_ : *default_channel_;
+          return *channel_;
         }
 
         /**
         *  Destructor
         */
         virtual ~Deferred() {
-          std::cout << " .... ~Deferred("<<this<<"): " << data_handler_.has_value() << ", " << error_handler_.has_value() << std::endl;
           if (error_ && error_handler_) error_handler_.value()(error_);
           if (finalize_handler_) finalize_handler_.value()();
           reset();
-          //if (channel_) delete channel_;
         }
-
-//        void set_channel(Channel *channel) {
-//          channel_ = channel;
-//        }
 
     protected:
         std::optional<DataHandler>     data_handler_     = std::nullopt;
@@ -203,14 +171,9 @@ namespace capy::amqp {
         std::optional<FinalizeHandler> finalize_handler_ = std::nullopt;
 
     private:
-        //mutable std::mutex mutex_;
-        //Channel *channel_;
-        //std::unique_ptr<Channel> channel_;
         std::shared_ptr<Channel> channel_;
-        Channel* default_channel_;
         Error error_;
         bool failed_;
-        //Channel *channel_;
 
         void reset(){
           data_handler_.reset();

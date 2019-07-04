@@ -26,39 +26,23 @@ namespace capy::amqp {
     //
     // MARK: - bind
     //
-    Result <Broker> Broker::Bind(const capy::amqp::Address &address, const std::string &exchange_name) {
+    Result <Broker> Broker::Bind(
+            const capy::amqp::Address &address,
+            const std::string &exchange_name,
+            const ErrorHandler& on_error) {
 
       try {
 
         auto impl = std::make_shared<BrokerImpl>(address, exchange_name);
 
-        //impl->exchange_name_ = exchange_name;
-        //impl->connection_pool_ = std::make_unique<ConnectionCache>(address);
-
-        auto channel = impl->connection_pool_->get_default_channel();
-
-        std::promise<std::string> error_message;
+        auto channel = impl->connections_->get_default_channel();
 
         channel
-
                 ->declareExchange(exchange_name, AMQP::topic, AMQP::durable)
 
-                .onSuccess([&error_message]{
-                    //error_message.set_value("");
-                })
-
-                .onError([&error_message](const char *message){
-                    //error_message.set_value(message);
+                .onError([on_error](const char *message){
+                    on_error(Error(BrokerError::QUEUE_DECLARATION, message));
                 });
-
-
-        //auto error = error_message.get_future().get();
-
-//        if(!error.empty()) {
-//          return capy::make_unexpected(
-//                  capy::Error(BrokerError::EXCHANGE_DECLARATION,
-//                              error_string("ConnectionCache has been closed: %s", error.c_str())));
-//        }
 
         return Broker(impl);
 

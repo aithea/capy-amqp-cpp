@@ -10,14 +10,9 @@
 
 namespace capy::amqp {
 
-
     static void monitor(uv_timer_t *handle){
       auto broker = static_cast<BrokerImpl*>(handle->data);
       std::cout << "monitor ping ... " << broker << std::endl;
-      for(auto used: broker->get_used()) {
-        std::cout << "monitor ping used:" << used << std::endl;
-
-      }
     }
 
     inline static std::string create_unique_id() {
@@ -31,7 +26,7 @@ namespace capy::amqp {
                            const std::string &exchange_name):
             exchange_name_(exchange_name),
             loop_(std::shared_ptr<uv_loop_t>(uv_loop_t_allocator(), uv_loop_t_deallocator())),
-            connection_pool_(std::make_unique<ConnectionCache>(address,loop_)),
+            connections_(std::make_unique<ConnectionCache>(address,loop_)),
             fetchers_(),
             listeners_()
     {
@@ -39,7 +34,7 @@ namespace capy::amqp {
     }
 
     BrokerImpl::~BrokerImpl() {
-      connection_pool_->flush();
+      connections_->flush();
     }
 
     void BrokerImpl::run() {
@@ -72,7 +67,7 @@ namespace capy::amqp {
       AMQP::Envelope envelope(static_cast<char*>((void *)data.data()), static_cast<uint64_t>(data.size()));
       envelope.setDeliveryMode(2);
 
-      auto channel = connection_pool_->new_channel();
+      auto channel = connections_->new_channel();
 
       std::promise<std::string> publish_barrier;
 
@@ -111,7 +106,7 @@ namespace capy::amqp {
       auto correlation_id = create_unique_id();
 
       fetchers_.set(correlation_id,
-              std::make_shared<capy::amqp::DeferredFetch>(std::unique_ptr<Channel>(connection_pool_->new_channel())));
+                    std::make_shared<capy::amqp::DeferredFetch>(std::unique_ptr<Channel>(connections_->new_channel())));
 
       auto  deferred = fetchers_.get(correlation_id).get();
       auto& channel = deferred->get_channel();
@@ -125,8 +120,7 @@ namespace capy::amqp {
                               this,
                               message,
                               routing_key,
-                              correlation_id//,
-                              //channel
+                              correlation_id
                       ]
                               (const std::string &name, uint32_t messagecount, uint32_t consumercount) {
                           (void) consumercount;
@@ -142,12 +136,6 @@ namespace capy::amqp {
                           envelope->setCorrelationID(correlation_id);
                           envelope->setReplyTo(name);
 
-//                          auto& deferred = fetchers_[correlation_id];
-//
-//                          auto& channel = deferred->get_channel();
-                          //auto channel = connection_pool_->get_default_channel();
-
-                          //auto  deferred = fetchers_.get(correlation_id).get();
                           auto& channel = fetchers_.get(correlation_id)->get_channel();
 
                           channel.startTransaction();
@@ -216,20 +204,14 @@ namespace capy::amqp {
 
                                       }
 
-
-                                      //fetchers_.erase(correlation_id);
-                                      //fetchers_.del(correlation_id);
                                   })
 
                                   .onSuccess([this,correlation_id]{
-                                      //fetchers_[correlation_id]->report_success();
                                       fetchers_.get(correlation_id)->report_success();
                                   })
 
                                   .onError([correlation_id, this](const char *message) {
-                                      //fetchers_[correlation_id]->report_error(Error(BrokerError::DATA_RESPONSE, message));
                                       fetchers_.get(correlation_id)->report_error(Error(BrokerError::DATA_RESPONSE, message));
-                                      //fetchers_.erase(correlation_id);
                                       fetchers_.del(correlation_id);
                                   });
 
@@ -237,8 +219,6 @@ namespace capy::amqp {
 
               .onError([this, correlation_id](const char *message) {
                   fetchers_.get(correlation_id)->report_error(Error(BrokerError::QUEUE_DECLARATION, message));
-                  //fetchers_[correlation_id];
-                  //fetchers_.erase(correlation_id);
                   fetchers_.del(correlation_id);
               });
 
@@ -253,24 +233,14 @@ namespace capy::amqp {
 
       auto correlation_id = create_unique_id();
 
-      //listeners_[correlation_id] = std::make_shared<capy::amqp::DeferredListen>(std::unique_ptr<Channel>(connection_pool_->new_channel()));
-
-      //listeners_[correlation_id] = std::make_shared<capy::amqp::DeferredListen>(connection_pool_->new_channel());
-      //listeners_[correlation_id] = std::make_shared<capy::amqp::DeferredListen>(std::shared_ptr<Channel>(connection_pool_->new_channel()));
-
-      //listeners_[correlation_id] = std::make_shared<capy::amqp::DeferredListen>(std::shared_ptr<Channel>(connection_pool_->new_channel()));
       listeners_.set(correlation_id,
-                    std::make_shared<capy::amqp::DeferredListen>(connection_pool_->new_channel()));
+                     std::make_shared<capy::amqp::DeferredListen>(std::unique_ptr<Channel>(connections_->new_channel())));
 
       auto deferred = listeners_.get(correlation_id);
 
       auto& channel = deferred->get_channel();
 
-      //auto deferred = std::make_shared<capy::amqp::DeferredListen>();
-
-      connection_pool_->set_deferred(deferred);
-
-      //auto channel = connection_pool_->get_default_channel();
+      connections_->set_deferred(deferred);
 
       channel.onError([this, correlation_id](const char *message) {
           listeners_.get(correlation_id)->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, message));
@@ -282,7 +252,6 @@ namespace capy::amqp {
               .declareQueue(queue, AMQP::durable)
 
               .onError([this, correlation_id](const char *message) {
-                  //auto& deferred = listeners_[correlation_id];
                   listeners_.get(correlation_id)->report_error(capy::Error(BrokerError::QUEUE_DECLARATION, message));
               });
 
@@ -293,7 +262,6 @@ namespace capy::amqp {
                 .bindQueue(exchange_name_, queue, routing_key)
 
                 .onError([this, correlation_id, routing_key, queue](const char *message) {
-                    //auto& deferred = listeners_[correlation_id];
                     listeners_.get(correlation_id)->
                             report_error(
                             capy::Error(BrokerError::QUEUE_BINDING,
@@ -323,10 +291,9 @@ namespace capy::amqp {
 
                     capy::json received = json::from_msgpack(buffer);
 
-                    //listeners_[correlation_id]->get_channel().ack(deliveryTag);
                     listeners_.get(correlation_id)->get_channel().ack(deliveryTag);
 
-                    connection_pool_->reset_deferred();
+                    connections_->reset_deferred();
 
                     capy::amqp::Task::Instance().async([ this,
                                                                correlation_id,
@@ -337,7 +304,6 @@ namespace capy::amqp {
                                                        ] {
 
                         try {
-                          //auto& deferred = listeners_[correlation_id];
 
                           Result<capy::json> replay;
                           capy::json error_json;
@@ -359,7 +325,7 @@ namespace capy::amqp {
 
                           envelope.setCorrelationID(cid);
 
-                          auto channel = connection_pool_->new_channel();
+                          auto channel = connections_->new_channel();
 
                           channel->startTransaction();
 
@@ -372,7 +338,6 @@ namespace capy::amqp {
 
                           delete channel;
 
-                          //listeners_.erase(correlation_id);
                         }
 
                         catch (json::exception &exception) {
@@ -380,12 +345,12 @@ namespace capy::amqp {
                           /// Some programmatic exception is not processing properly
                           ///
 
-                          connection_pool_->reset_deferred();
+                          connections_->reset_deferred();
                           listeners_.del(correlation_id);
                           throw_abort(exception.what());
                         }
                         catch (...) {
-                          connection_pool_->reset_deferred();
+                          connections_->reset_deferred();
                           listeners_.del(correlation_id);
                           throw_abort("Unexpected exception...");
                         }
@@ -407,7 +372,7 @@ namespace capy::amqp {
               })
 
               .onError([this, correlation_id](const char *message) {
-                  connection_pool_->reset_deferred();
+                  connections_->reset_deferred();
                   listeners_.get(correlation_id)->report_error(capy::Error(BrokerError::QUEUE_CONSUMING, message));
                   listeners_.del(correlation_id);
               });

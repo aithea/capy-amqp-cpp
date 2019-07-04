@@ -48,26 +48,17 @@ namespace capy::amqp {
     public:
         using __TcpChannel::__TcpChannel;
         virtual ~Channel() override {
-          std::cout << " ... ~Channel("<<id()<<") ..." << std::endl;
         }
 
     };
 
 
-    /*
-     * inline static void monitor(uv_timer_t *handle){
-     * std::cout << "monitor ping ... " << std::endl;
-     * }
-     */
-
     struct Connection {
     private:
-        std::thread thread_loop_;
         std::shared_ptr<uv_loop_t> loop_;
         std::shared_ptr<ConnectionHandler> handler_;
         std::unique_ptr<AMQP::TcpConnection> connection_;
         std::unique_ptr<Channel>    channel_;
-        //std::shared_ptr<Channel>    channel_;
 
     public:
 
@@ -82,7 +73,6 @@ namespace capy::amqp {
 
         AMQP::TcpConnection* get_conection() { return connection_.get(); };
         Channel*             get_default_channel() { return channel_.get(); };
-        //const std::shared_ptr<Channel>&  get_default_channel() { return channel_.get(); };
 
         void set_deferred(const std::shared_ptr<capy::amqp::DeferredListen>& aDeferred) {
           handler_->deferred = aDeferred;
@@ -172,16 +162,11 @@ namespace capy::amqp {
 
     private:
 
-        mutable std::mutex mutex_;
         std::string exchange_name_;
         std::shared_ptr<uv_loop_t> loop_;
-        std::unique_ptr<ConnectionCache> connection_pool_;
-        //capy::Cache<std::string, DeferredFetch> fetchers_;
-        //std::map<std::string,std::shared_ptr<DeferredFetch>> fetchers_;
+        std::unique_ptr<ConnectionCache> connections_;
         capy::Cache<std::string, DeferredFetch> fetchers_;
         capy::Cache<std::string, DeferredListen> listeners_;
-        //std::map<std::string,std::shared_ptr<DeferredListen>> listeners_;
-        std::vector<std::string> used_;
         std::thread thread_loop_;
 
     public:
@@ -198,10 +183,5 @@ namespace capy::amqp {
         Error publish_message(const json &message, const std::string &routing_key);
 
         void run();
-
-        const std::vector<std::string>& get_used() const {
-          return used_;
-        }
-
     };
 }

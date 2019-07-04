@@ -33,7 +33,9 @@ TEST(Exchange, AsyncListenTest) {
 
     std::cout << " ... error_state: " << error_state << std::endl;
 
-    capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address);
+    capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address, [](const capy::Error& error){
+
+    });
 
     EXPECT_TRUE(broker);
 
