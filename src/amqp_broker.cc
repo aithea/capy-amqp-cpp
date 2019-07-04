@@ -30,10 +30,10 @@ namespace capy::amqp {
 
       try {
 
-        auto impl = std::make_shared<BrokerImpl>();
+        auto impl = std::make_shared<BrokerImpl>(address, exchange_name);
 
-        impl->exchange_name_ = exchange_name;
-        impl->connection_pool_ = std::make_unique<ConnectiCache>(address);
+        //impl->exchange_name_ = exchange_name;
+        //impl->connection_pool_ = std::make_unique<ConnectionCache>(address);
 
         auto channel = impl->connection_pool_->get_default_channel();
 
@@ -44,23 +44,24 @@ namespace capy::amqp {
                 ->declareExchange(exchange_name, AMQP::topic, AMQP::durable)
 
                 .onSuccess([&error_message]{
-                    error_message.set_value("");
+                    //error_message.set_value("");
                 })
 
                 .onError([&error_message](const char *message){
-                    error_message.set_value(message);
+                    //error_message.set_value(message);
                 });
 
 
-        auto error = error_message.get_future().get();
+        //auto error = error_message.get_future().get();
 
-        if(!error.empty()) {
-          return capy::make_unexpected(
-                  capy::Error(BrokerError::EXCHANGE_DECLARATION,
-                              error_string("ConnectiCache has been closed: %s", error.c_str())));
-        }
+//        if(!error.empty()) {
+//          return capy::make_unexpected(
+//                  capy::Error(BrokerError::EXCHANGE_DECLARATION,
+//                              error_string("ConnectionCache has been closed: %s", error.c_str())));
+//        }
 
         return Broker(impl);
+
       }
       catch (std::exception& e) {
         return capy::make_unexpected(
@@ -98,6 +99,10 @@ namespace capy::amqp {
       return impl_->listen_messages(queue,routing_keys);
     }
 
+    void Broker::run() {
+      impl_->run();
+    }
+
     //
     // publish
     //
@@ -112,7 +117,7 @@ namespace capy::amqp {
     std::string BrokerErrorCategory::message(int ev) const {
       switch (ev) {
         case static_cast<int>(BrokerError::CONNECTION):
-          return "ConnectiCache error";
+          return "ConnectionCache error";
         default:
           return ErrorCategory::message(ev);
       }

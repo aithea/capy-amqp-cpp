@@ -5,11 +5,14 @@
 #include "gtest/gtest.h"
 #include "capy/amqp.h"
 
-#define CAPY_RPC_TEST_COUNT 10000
+#define CAPY_RPC_TEST_COUNT 5000
 #define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
 #define CAPY_RPC_TEST_ASYNC 1
 
 TEST(Exchange, AsyncFetchTest) {
+
+  std::cout << std::endl;
+
   auto address = capy::amqp::Address::From("amqp://guest:guest@localhost:5672/");
 
   EXPECT_TRUE(address);
@@ -29,6 +32,8 @@ TEST(Exchange, AsyncFetchTest) {
               << std::endl;
     return;
   }
+
+ // broker->run();
 
   int max_count = CAPY_RPC_TEST_COUNT;
 
@@ -67,7 +72,6 @@ TEST(Exchange, AsyncFetchTest) {
 
                 if (max_count - 1 == i) {
                   std::cout << " ... exiting ... " << std::endl;
-                  std::this_thread::sleep_for(std::chrono::milliseconds(1));
                   ::exit(0);
                 }
 
@@ -94,6 +98,8 @@ TEST(Exchange, AsyncFetchTest) {
 #endif
 
   }
+
+  broker->run();
 
   capy::dispatchq::main::loop::run();
 }

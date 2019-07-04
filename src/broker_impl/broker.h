@@ -48,6 +48,7 @@ namespace capy::amqp {
     public:
         using __TcpChannel::__TcpChannel;
         virtual ~Channel() override {
+          std::cout << " ... ~Channel("<<id()<<") ..." << std::endl;
         }
 
     };
@@ -66,34 +67,29 @@ namespace capy::amqp {
         std::shared_ptr<ConnectionHandler> handler_;
         std::unique_ptr<AMQP::TcpConnection> connection_;
         std::unique_ptr<Channel>    channel_;
+        //std::shared_ptr<Channel>    channel_;
 
     public:
 
-        Connection(const capy::amqp::Address& address):
-                loop_(std::shared_ptr<uv_loop_t>(uv_loop_t_allocator(), uv_loop_t_deallocator())),
+        Connection(const capy::amqp::Address& address, const std::shared_ptr<uv_loop_t>& loop):
+                loop_(loop),
                 handler_(std::make_shared<ConnectionHandler>(loop_.get())),
                 connection_(std::make_unique<AMQP::TcpConnection>(handler_.get(),to_address(address))),
                 channel_(std::make_unique<Channel>(connection_.get()))
         {
 
-          thread_loop_ = std::thread([this] {
-              uv_run(loop_.get(), UV_RUN_DEFAULT);
-          });
-
-          /*
-           * uv_timer_t timer_req;
-           * uv_timer_init(loop_.get(), &timer_req);
-           * uv_timer_start(&timer_req, monitor, 0, 2000);
-           */
-
-          thread_loop_.detach();
         }
 
         AMQP::TcpConnection* get_conection() { return connection_.get(); };
         Channel*             get_default_channel() { return channel_.get(); };
+        //const std::shared_ptr<Channel>&  get_default_channel() { return channel_.get(); };
 
         void set_deferred(const std::shared_ptr<capy::amqp::DeferredListen>& aDeferred) {
           handler_->deferred = aDeferred;
+        }
+
+        void reset_deferred() {
+          handler_->deferred = nullptr;
         }
 
         Connection(const Connection& ) = delete;
@@ -101,15 +97,14 @@ namespace capy::amqp {
 
     };
 
-    class ConnectiCache {
-
-        capy::Cache<std::thread::id, Connection> connections_;
-        capy::amqp::Address address_;
+    class ConnectionCache {
 
     public:
-        ConnectiCache(
-                const capy::amqp::Address &address):
-                address_(address)
+        ConnectionCache(
+                const capy::amqp::Address &address, const std::shared_ptr<uv_loop_t>& loop):
+                loop_(loop),
+                address_(address),
+                connections_()
         {}
 
         void flush() {
@@ -117,18 +112,18 @@ namespace capy::amqp {
         }
 
         void set_deferred(const std::shared_ptr<capy::amqp::DeferredListen>& aDeferred) {
-          auto id = std::this_thread::get_id();
-          if (!connections_.has(id)) {
-            connections_.set(id, std::make_shared<Connection>(address_));
-          }
-          connections_.get(id)->set_deferred(aDeferred);
+          get_conection()->set_deferred(aDeferred);
+        }
+
+        void reset_deferred() {
+          get_conection()->reset_deferred();
         }
 
         Channel* new_channel() {
           auto id = std::this_thread::get_id();
 
           if (!connections_.has(id)) {
-            auto _connection = std::make_shared<Connection>(address_);
+            auto _connection = std::make_shared<Connection>(address_, loop_);
             connections_.set(id, _connection);
             return new Channel(_connection->get_conection());
           }
@@ -144,7 +139,7 @@ namespace capy::amqp {
           Channel* _channel;
 
           if (!connections_.has(id)) {
-            auto _connection = std::make_shared<Connection>(address_);
+            auto _connection = std::make_shared<Connection>(address_, loop_);
             connections_.set(id, _connection);
             _channel = _connection->get_default_channel();
           }
@@ -155,8 +150,21 @@ namespace capy::amqp {
           return _channel;
         }
 
-        ConnectiCache(const ConnectiCache& ) = delete;
-        ConnectiCache(ConnectiCache&& ) = delete;
+        ConnectionCache(const ConnectionCache& ) = delete;
+        ConnectionCache(ConnectionCache&& ) = delete;
+
+    private:
+        std::shared_ptr<uv_loop_t> loop_;
+        capy::amqp::Address address_;
+        capy::Cache<std::thread::id, Connection> connections_;
+
+        Connection* get_conection() {
+          auto id = std::this_thread::get_id();
+          if (!connections_.has(id)) {
+            connections_.set(id, std::make_shared<Connection>(address_, loop_));
+          }
+          return connections_.get(id).get();
+        }
     };
 
     class BrokerImpl {
@@ -166,10 +174,18 @@ namespace capy::amqp {
 
         mutable std::mutex mutex_;
         std::string exchange_name_;
-        std::unique_ptr<ConnectiCache> connection_pool_;
+        std::shared_ptr<uv_loop_t> loop_;
+        std::unique_ptr<ConnectionCache> connection_pool_;
+        //capy::Cache<std::string, DeferredFetch> fetchers_;
+        //std::map<std::string,std::shared_ptr<DeferredFetch>> fetchers_;
+        capy::Cache<std::string, DeferredFetch> fetchers_;
+        capy::Cache<std::string, DeferredListen> listeners_;
+        //std::map<std::string,std::shared_ptr<DeferredListen>> listeners_;
+        std::vector<std::string> used_;
+        std::thread thread_loop_;
 
     public:
-        BrokerImpl(){};
+        BrokerImpl(const capy::amqp::Address &address, const std::string &exchange_name);
         BrokerImpl(const BrokerImpl&) = delete;
         BrokerImpl(BrokerImpl&&) = delete;
 
@@ -180,6 +196,12 @@ namespace capy::amqp {
         DeferredFetch& fetch_message(const json& message, const std::string& routing_key);
 
         Error publish_message(const json &message, const std::string &routing_key);
+
+        void run();
+
+        const std::vector<std::string>& get_used() const {
+          return used_;
+        }
 
     };
 }

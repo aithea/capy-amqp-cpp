@@ -107,6 +107,8 @@ namespace capy::amqp {
         DeferredListen& listen(const std::string& queue, const std::vector<std::string>& keys);
 
 
+        void run();
+
     protected:
         Broker();
         Broker(const std::shared_ptr<BrokerImpl>& impl);

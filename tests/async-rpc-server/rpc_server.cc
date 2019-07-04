@@ -119,6 +119,8 @@ TEST(Exchange, AsyncListenTest) {
             });
 
 
+    broker->run();
+
     error_state = error_state_connection.get_future().get();
 
     std::cout << " ... error_state connection: " << error_state << std::endl;
