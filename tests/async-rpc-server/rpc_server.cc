@@ -116,7 +116,8 @@ TEST(Exchange, AsyncListenTest) {
                           << error.message() << std::endl;
 
                 try {
-                  error_state_connection.set_value(static_cast<int>(error.value()));
+                  if (error.value() == static_cast<int>(capy::amqp::BrokerError::CONNECTION_LOST))
+                    error_state_connection.set_value(static_cast<int>(error.value()));
                 }catch (...){}
 
             });

@@ -11,11 +11,11 @@
 
 namespace capy::amqp {
 
-    /**
-    static void monitor(uv_timer_t *handle){
-      auto broker = static_cast<BrokerImpl*>(handle->data);
-      std::cout << "monitor ping ... " << broker << std::endl;
-    }*/
+
+//    static void monitor(uv_timer_t *handle){
+//      auto broker = static_cast<BrokerImpl*>(handle->data);
+//      std::cout << "monitor ping ... " << broker << std::endl;
+//    }
 
     inline static std::string create_unique_id() {
       static int n = 1;
@@ -286,85 +286,88 @@ namespace capy::amqp {
                           static_cast<std::uint8_t *>((void*)message.body()) + message.bodySize());
 
                   auto replay_to = message.replyTo();
+                  auto routing_key = message.routingkey();
                   auto cid = message.correlationID();
 
+                  capy::json received;
+
+                  listeners_.get(correlation_id)->get_channel().ack(deliveryTag);
+
                   try {
-
-                    capy::json received = json::from_msgpack(buffer);
-
-                    listeners_.get(correlation_id)->get_channel().ack(deliveryTag);
-
-                    connections_->reset_deferred();
-
-                    capy::amqp::Task::Instance().async([ this,
-                                                               correlation_id,
-                                                               replay_to,
-                                                               received,
-                                                               cid,
-                                                               deliveryTag
-                                                       ] {
-
-                        try {
-
-                          Result<capy::json> replay;
-                          capy::json error_json;
-
-                          listeners_.get(correlation_id)->report_data(Rpc(replay_to, received), replay);
-
-                          if (!replay) {
-                            error_json = {"error",
-                                          {{"code", replay.error().value()}, {"message", replay.error().message()}}};
-                          } else if (replay->empty()) {
-                            error_json = {"error",
-                                          {{"code", BrokerError::EMPTY_REPLAY}, {"message", "worker replay is empty"}}};
-                          }
-
-                          auto data = json::to_msgpack(error_json.empty() ? replay.value() : error_json);
-
-                          AMQP::Envelope envelope(static_cast<char *>((void *) data.data()),
-                                                  static_cast<uint64_t>(data.size()));
-
-                          envelope.setCorrelationID(cid);
-
-                          auto channel = connections_->new_channel();
-
-                          channel->startTransaction();
-
-                          channel->publish("", replay_to, envelope);
-
-                          channel->commitTransaction()
-                                  .onError([this, correlation_id](const char *message) {
-                                      listeners_.get(correlation_id)->report_error(capy::Error(BrokerError::PUBLISH, message));
-                                  });
-
-                          delete channel;
-
-                        }
-
-                        catch (json::exception &exception) {
-                          ///
-                          /// Some programmatic exception is not processing properly
-                          ///
-
-                          connections_->reset_deferred();
-                          listeners_.del(correlation_id);
-                          throw_abort(exception.what());
-                        }
-                        catch (...) {
-                          connections_->reset_deferred();
-                          listeners_.del(correlation_id);
-                          throw_abort("Unexpected exception...");
-                        }
-                    });
-
+                    received = json::from_msgpack(buffer);
                   }
-
                   catch (json::exception &exception) {
                     listeners_.get(correlation_id)->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, exception.what()));
+                    return;
                   }
                   catch (...) {
                     listeners_.get(correlation_id)->report_error(capy::Error(BrokerError::CHANNEL_MESSAGE, "unknown error"));
+                    return;
                   }
+
+                  connections_->reset_deferred();
+
+                  capy::amqp::Task::Instance().async([ this,
+                                                             correlation_id,
+                                                             replay_to,
+                                                             routing_key,
+                                                             received,
+                                                             cid,
+                                                             deliveryTag
+                                                     ] {
+
+                      try {
+
+                        Result<capy::json> replay;
+                        capy::json error_json;
+
+                        listeners_.get(correlation_id)->report_data(Rpc(routing_key, received), replay);
+
+                        if (!replay) {
+                          error_json = {"error",
+                                        {{"code", replay.error().value()}, {"message", replay.error().message()}}};
+                        } else if (replay->empty()) {
+                          error_json = {"error",
+                                        {{"code", BrokerError::EMPTY_REPLAY}, {"message", "worker replay is empty"}}};
+                        }
+
+                        auto data = json::to_msgpack(error_json.empty() ? replay.value() : error_json);
+
+                        AMQP::Envelope envelope(static_cast<char *>((void *) data.data()),
+                                                static_cast<uint64_t>(data.size()));
+
+                        envelope.setCorrelationID(cid);
+
+                        auto channel = connections_->new_channel();
+
+                        channel->startTransaction();
+
+                        channel->publish("", replay_to, envelope);
+
+                        channel->commitTransaction()
+                                .onError([this, correlation_id](const char *message) {
+                                    listeners_.get(correlation_id)->report_error(capy::Error(BrokerError::PUBLISH, message));
+                                });
+
+                        delete channel;
+
+                      }
+
+                      catch (json::exception &exception) {
+                        ///
+                        /// Some programmatic exception is not processing properly
+                        ///
+
+                        connections_->reset_deferred();
+                        listeners_.del(correlation_id);
+                        throw_abort(exception.what());
+                      }
+                      catch (...) {
+                        connections_->reset_deferred();
+                        listeners_.del(correlation_id);
+                        throw_abort("Unexpected exception...");
+                      }
+                  });
 
               })
 
