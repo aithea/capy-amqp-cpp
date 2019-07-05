@@ -33,8 +33,6 @@ TEST(Exchange, AsyncFetchTest) {
     return;
   }
 
- // broker->run();
-
   int max_count = CAPY_RPC_TEST_COUNT;
 
   for (int i = 0; i < max_count ; ++i) {

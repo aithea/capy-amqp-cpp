@@ -56,21 +56,18 @@ namespace capy::amqp {
         std::shared_ptr<uv_loop_t> loop_;
         std::shared_ptr<ConnectionHandler> handler_;
         std::unique_ptr<AMQP::TcpConnection> connection_;
-        std::unique_ptr<Channel>    channel_;
 
     public:
 
-        Connection(const capy::amqp::Address& address, const std::shared_ptr<uv_loop_t>& loop):
+        Connection(const capy::amqp::Address& address, const std::shared_ptr<uv_loop_t>& loop, uint16_t heartbeat_timeout):
                 loop_(loop),
-                handler_(std::make_shared<ConnectionHandler>(loop_.get())),
-                connection_(std::make_unique<AMQP::TcpConnection>(handler_.get(),to_address(address))),
-                channel_(std::make_unique<Channel>(connection_.get()))
+                handler_(std::make_shared<ConnectionHandler>(loop_.get(), heartbeat_timeout)),
+                connection_(std::make_unique<AMQP::TcpConnection>(handler_.get(),to_address(address)))//,
         {
 
         }
 
         AMQP::TcpConnection* get_conection() { return connection_.get(); };
-        Channel*             get_default_channel() { return channel_.get(); };
 
         void set_deferred(const std::shared_ptr<capy::amqp::DeferredListen>& aDeferred) {
           handler_->deferred = aDeferred;
@@ -92,10 +89,13 @@ namespace capy::amqp {
 
     public:
         ConnectionCache(
-                const capy::amqp::Address &address, const std::shared_ptr<uv_loop_t>& loop):
+                const capy::amqp::Address &address,
+                const std::shared_ptr<uv_loop_t>& loop,
+                uint16_t heartbeat_timeout):
                 loop_(loop),
                 address_(address),
-                connections_()
+                connections_(),
+                heartbeat_timeout_(heartbeat_timeout)
         {}
 
         void flush() {
@@ -114,31 +114,13 @@ namespace capy::amqp {
           auto id = std::this_thread::get_id();
 
           if (!connections_.has(id)) {
-            auto _connection = std::make_shared<Connection>(address_, loop_);
+            auto _connection = std::make_shared<Connection>(address_, loop_, heartbeat_timeout_);
             connections_.set(id, _connection);
             return new Channel(_connection->get_conection());
           }
           else {
             return new Channel(connections_.get(id)->get_conection());
           }
-        }
-
-        Channel* get_default_channel() {
-
-          auto id = std::this_thread::get_id();
-
-          Channel* _channel;
-
-          if (!connections_.has(id)) {
-            auto _connection = std::make_shared<Connection>(address_, loop_);
-            connections_.set(id, _connection);
-            _channel = _connection->get_default_channel();
-          }
-          else {
-            _channel = connections_.get(id)->get_default_channel();
-          }
-
-          return _channel;
         }
 
         ConnectionCache(const ConnectionCache& ) = delete;
@@ -148,11 +130,12 @@ namespace capy::amqp {
         std::shared_ptr<uv_loop_t> loop_;
         capy::amqp::Address address_;
         capy::Cache<std::thread::id, Connection> connections_;
+        uint16_t heartbeat_timeout_;
 
         Connection* get_conection() {
           auto id = std::this_thread::get_id();
           if (!connections_.has(id)) {
-            connections_.set(id, std::make_shared<Connection>(address_, loop_));
+            connections_.set(id, std::make_shared<Connection>(address_, loop_, heartbeat_timeout_));
           }
           return connections_.get(id).get();
         }
@@ -171,7 +154,8 @@ namespace capy::amqp {
         std::thread thread_loop_;
 
     public:
-        BrokerImpl(const capy::amqp::Address &address, const std::string &exchange_name);
+
+        BrokerImpl(const capy::amqp::Address &address, const std::string &exchange_name, uint16_t heartbeat_timeout);
         BrokerImpl(const BrokerImpl&) = delete;
         BrokerImpl(BrokerImpl&&) = delete;
 
@@ -182,6 +166,7 @@ namespace capy::amqp {
         DeferredFetch& fetch_message(const json& message, const std::string& routing_key);
 
         Error publish_message(const json &message, const std::string &routing_key);
+
 
         void run();
     };

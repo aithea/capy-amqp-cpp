@@ -29,13 +29,14 @@ namespace capy::amqp {
     Result <Broker> Broker::Bind(
             const capy::amqp::Address &address,
             const std::string &exchange_name,
+            uint16_t heartbeat_timeout,
             const ErrorHandler& on_error) {
 
       try {
 
-        auto impl = std::make_shared<BrokerImpl>(address, exchange_name);
+        auto impl = std::make_shared<BrokerImpl>(address, exchange_name, heartbeat_timeout);
 
-        auto channel = impl->connections_->get_default_channel();
+        auto channel = impl->connections_->new_channel();
 
         channel
                 ->declareExchange(exchange_name, AMQP::topic, AMQP::durable)
@@ -43,6 +44,8 @@ namespace capy::amqp {
                 .onError([on_error](const char *message){
                     on_error(Error(BrokerError::QUEUE_DECLARATION, message));
                 });
+
+        delete channel;
 
         return Broker(impl);
 

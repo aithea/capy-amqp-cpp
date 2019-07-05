@@ -31,6 +31,7 @@ namespace capy::amqp {
          * Connection error
          */
         CONNECTION = EXTEND_ENUM(CommonError, LAST),
+        CONNECTION_CLOSED,
         CONNECTION_LOST,
         MEMORY,
         LOGIN,
@@ -69,6 +70,8 @@ namespace capy::amqp {
 
     public:
 
+        const constexpr static uint16_t heartbeat_timeout = 60;
+
         /***
          *
          * Bind broker with amqp cloud and create Broker client object
@@ -80,18 +83,30 @@ namespace capy::amqp {
         static Result <Broker> Bind(
                 const Address& address,
                 const std::string& exchange_name,
+                uint16_t heartbeat_timeout,
                 const ErrorHandler& on_error);
 
         static Result <Broker> Bind(
                 const Address& address,
                 const std::string& exchange_name){
-          return Broker::Bind(address,  exchange_name, [](const Error& error){(void)error;});
+          return Broker::Bind(address, exchange_name, Broker::heartbeat_timeout, [](const Error& error){(void)error;});
         }
 
         static Result <Broker> Bind(
                 const Address& address,
-                const ErrorHandler& on_error = [](const Error& error){(void)error;}){
-          return Broker::Bind(address, "amq.topic", on_error);
+                const ErrorHandler& on_error){
+          return Broker::Bind(address, "amq.topic", Broker::heartbeat_timeout, on_error);
+        }
+
+        static Result <Broker> Bind(
+                const Address& address,
+                uint16_t heartbeat_timeout){
+          return Broker::Bind(address, "amq.topic", heartbeat_timeout, [](const Error& error){(void)error;});
+        }
+
+        static Result <Broker> Bind(
+                const Address& address){
+          return Broker::Bind(address, "amq.topic", Broker::heartbeat_timeout, [](const Error& error){(void)error;});
         }
 
         /***

@@ -11,10 +11,11 @@
 
 namespace capy::amqp {
 
+    /**
     static void monitor(uv_timer_t *handle){
       auto broker = static_cast<BrokerImpl*>(handle->data);
       std::cout << "monitor ping ... " << broker << std::endl;
-    }
+    }*/
 
     inline static std::string create_unique_id() {
       static int n = 1;
@@ -24,10 +25,11 @@ namespace capy::amqp {
     }
 
     BrokerImpl::BrokerImpl(const capy::amqp::Address &address,
-                           const std::string &exchange_name):
+                           const std::string &exchange_name,
+                           uint16_t heartbeat_timeout):
             exchange_name_(exchange_name),
             loop_(std::shared_ptr<uv_loop_t>(uv_loop_t_allocator(), uv_loop_t_deallocator())),
-            connections_(std::make_unique<ConnectionCache>(address,loop_)),
+            connections_(std::make_unique<ConnectionCache>(address,loop_, heartbeat_timeout)),
             fetchers_(),
             listeners_()
     {
@@ -42,12 +44,12 @@ namespace capy::amqp {
 
       thread_loop_ = std::thread([this] {
 
-          uv_timer_t timer_req;
-
-          timer_req.data = this;
-
-          uv_timer_init(loop_.get(), &timer_req);
-          uv_timer_start(&timer_req, monitor, 0, 1000);
+//          uv_timer_t timer_req;
+//
+//          timer_req.data = this;
+//
+//          uv_timer_init(loop_.get(), &timer_req);
+//          uv_timer_start(&timer_req, monitor, 0, 1000);
 
           uv_run(loop_.get(), UV_RUN_DEFAULT);
 
