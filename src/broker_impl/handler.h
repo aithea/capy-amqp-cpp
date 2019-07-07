@@ -69,7 +69,7 @@ namespace capy::amqp {
 
         virtual void onHeartbeat(AMQP::TcpConnection *connection) override
         {
-          int ret = connection->heartbeat();
+          connection->heartbeat();
         }
 
         virtual uint16_t onNegotiate(AMQP::TcpConnection *connection, uint16_t interval) override
