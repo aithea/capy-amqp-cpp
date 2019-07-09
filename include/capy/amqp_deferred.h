@@ -148,7 +148,7 @@ namespace capy::amqp {
           finalize_handler_ = callback;
           return *this;
         }
-        
+
         /**
         *  Destructor
         */
@@ -184,5 +184,5 @@ namespace capy::amqp {
     /***
     * Listener handling action request and replies
     */
-    using DeferredListen = Deferred<const Request &, Replay &>;
+    using DeferredListen = Deferred<const Request &, Replay*>;
 }

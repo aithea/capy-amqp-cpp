@@ -154,7 +154,25 @@ namespace capy::amqp {
     /**
      * Replay data type
      */
-    typedef Result<json> Replay;
+    typedef Result<json> ReplayType;
+    class Replay {
+
+        using CommitHandler  = std::function<void(Replay* replay)>;
+
+    public:
+        //using ReplayType::ReplayType;
+        ReplayType message;
+
+        //Replay(const std::optional<CommitHandler>& commit_handler = nullptr);
+        Replay();
+        ~Replay();
+
+        void set_commit(const std::optional<CommitHandler>& commit_handler);
+        void commit();
+
+    private:
+        std::optional<CommitHandler> commit_handler_;
+    };
 
     /***
      * Fetcher handling request

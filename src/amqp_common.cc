@@ -5,6 +5,7 @@
 #include "capy/amqp_common.h"
 #include <string>
 #include <cstdarg>
+#include <iostream>
 
 namespace capy {
 
@@ -46,6 +47,29 @@ namespace capy::amqp {
 
     using namespace std;
 
+    Replay::~Replay() {
+      std::cout << " *** ~Replay " << (this->message.has_value() ? this->message.value().dump() : this->message.error().message()) << std::endl;
+      //if (!this->has_value())
+      //  commit();
+    }
+
+    //Replay::Replay(const std::optional<capy::amqp::Replay::CommitHandler> &commit_handler):
+    //ReplayType(),
+    Replay::Replay():
+    commit_handler_(nullptr)
+    {}
+
+    void Replay::set_commit(const std::optional<capy::amqp::Replay::CommitHandler> &commit_handler) {
+      commit_handler_ = commit_handler;
+    }
+
+    void Replay::commit() {
+      std::cout << " *** commit " << (this->message.has_value() ? this->message.value().dump() : this->message.error().message()) << std::endl;
+
+      if (commit_handler_) {
+        commit_handler_.value()(this);
+      }
+    }
 
     const char *ErrorCategory::name() const noexcept {
       return "capy.amqp";

@@ -8,8 +8,8 @@
 #include <ctime>
 #include <cstdlib>
 
-#define CAPY_RPC_TEST_EMULATE_COMPUTATION 1
-#define CAPY_RPC_TEST_EMULATE_ERROR 1
+#define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
+#define CAPY_RPC_TEST_EMULATE_ERROR 0
 
 TEST(Exchange, AsyncListenTest) {
 
@@ -50,7 +50,7 @@ TEST(Exchange, AsyncListenTest) {
 
     broker->listen("capy-test", {"echo.ping"})
 
-            .on_data([&counter](const capy::amqp::Request &request, capy::amqp::Replay &replay) {
+            .on_data([&counter](const capy::amqp::Request &request, capy::amqp::Replay* replay) {
 
                 if (!request) {
                   std::cerr << " listen error: " << request.error().value() << "/" << request.error().message()
@@ -76,22 +76,22 @@ TEST(Exchange, AsyncListenTest) {
                   }
 #endif
 
-                  if (counter % 11 == 0) {
+                  if (counter % 2 == 0) {
 
-                    replay = capy::make_unexpected(capy::Error(
+                    replay->message = capy::make_unexpected(capy::Error(
                             capy::amqp::BrokerError::DATA_RESPONSE,
                             capy::error_string("some error %i", counter)));
 
                   } else {
 
-                      replay.value() = {"reply", true, counter, r};
+                      replay->message.value() = {"reply", true, counter, r};
 
                   }
 
                   if (!replay) {
-                    std::cout << " listen replay: " << replay.error().message() << std::endl;
+                    std::cout << " listen replay: " << replay->message.error().message() << std::endl;
                   } else {
-                    std::cout << " listen replay: " << replay.value_or(capy::json({"is empty"})).dump(4) << std::endl;
+                    std::cout << " listen replay: " << replay->message.value_or(capy::json({"is empty"})).dump(4) << std::endl;
                   }
 
 #if CAPY_RPC_TEST_EMULATE_COMPUTATION == 1
@@ -101,6 +101,8 @@ TEST(Exchange, AsyncListenTest) {
 
                 }
 
+                replay->commit();
+                //replay->error().commit();
             })
 
             .on_success([] {

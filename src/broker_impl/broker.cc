@@ -318,39 +318,60 @@ namespace capy::amqp {
 
                       try {
 
-                        Result<capy::json> replay;
-                        capy::json error_json;
+                        //std::shared_ptr<Replay> replay;
+
+                        //replay = std::make_shared<Replay>();
+
+                        Replay *replay = new Replay();
+
+                        replay->set_commit([this, cid, replay_to, correlation_id](Replay* r){
+
+                            capy::json error_json;
+
+                            std::cout << " ### Replay " << (r->message.has_value() ? r->message.value().dump() : r->message.error().message()) << std::endl;
+
+                            if (!r->message.has_value()) {
+
+                              error_json = {"error",
+                                            {{"code", r->message.error().value()}, {"message", r->message.error().message()}}};
+
+                            } else if (r->message.value().empty()) {
+
+                              error_json = {"error",
+                                            {{"code", BrokerError::EMPTY_REPLAY}, {"message", "worker replay is empty"}}};
+
+                            }
+
+                            auto data = json::to_msgpack(error_json.empty() ? r->message.value() : error_json);
+
+                            std::cout << " ### Replay data["<< r->message.has_value() <<"]: " << error_json << std::endl;
+
+                            AMQP::Envelope envelope(static_cast<char *>((void *) data.data()),
+                                                    static_cast<uint64_t>(data.size()));
+
+                            envelope.setCorrelationID(cid);
+
+                            auto channel = connections_->new_channel();
+
+                            channel->startTransaction();
+
+                            channel->publish("", replay_to, envelope);
+
+                            channel->commitTransaction()
+                                    .onSuccess([r]{
+                                        delete r;
+                                    })
+                                    .onError([this, correlation_id](const char *message) {
+                                        listeners_.get(correlation_id)->report_error(capy::Error(BrokerError::PUBLISH, message));
+                                    });
+
+                            delete channel;
+
+                        });
 
                         listeners_.get(correlation_id)->report_data(Rpc(routing_key, received), replay);
 
-                        if (!replay) {
-                          error_json = {"error",
-                                        {{"code", replay.error().value()}, {"message", replay.error().message()}}};
-                        } else if (replay->empty()) {
-                          error_json = {"error",
-                                        {{"code", BrokerError::EMPTY_REPLAY}, {"message", "worker replay is empty"}}};
-                        }
-
-                        auto data = json::to_msgpack(error_json.empty() ? replay.value() : error_json);
-
-                        AMQP::Envelope envelope(static_cast<char *>((void *) data.data()),
-                                                static_cast<uint64_t>(data.size()));
-
-                        envelope.setCorrelationID(cid);
-
-                        auto channel = connections_->new_channel();
-
-                        channel->startTransaction();
-
-                        channel->publish("", replay_to, envelope);
-
-                        channel->commitTransaction()
-                                .onError([this, correlation_id](const char *message) {
-                                    listeners_.get(correlation_id)->report_error(capy::Error(BrokerError::PUBLISH, message));
-                                });
-
-                        delete channel;
-
+                        //replay.commit();
                       }
 
                       catch (json::exception &exception) {
