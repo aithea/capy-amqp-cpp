@@ -322,26 +322,11 @@ namespace capy::amqp {
 
                   connections_->reset_deferred();
 
-//                  capy::amqp::Task::Instance().async([ this,
-//                                                             correlation_id,
-//                                                             replay_to,
-//                                                             routing_key,
-//                                                             received,
-//                                                             cid,
-//                                                             deliveryTag
-//                                                     ] {
-
-                        //std::shared_ptr<Replay> replay;
-
-                        //replay = std::make_shared<Replay>();
-
                         Replay *replay = new Replay();
 
                         replay->set_commit([this, cid, replay_to, correlation_id](Replay* r){
 
                             capy::json error_json;
-
-                            std::cout << " ### Replay " << (r->message.has_value() ? r->message.value().dump() : r->message.error().message()) << std::endl;
 
                             if (!r->message.has_value()) {
 
@@ -356,8 +341,6 @@ namespace capy::amqp {
                             }
 
                             auto data = json::to_msgpack(error_json.empty() ? r->message.value() : error_json);
-
-                            std::cout << " ### Replay data["<< r->message.has_value() <<"]: " << error_json << std::endl;
 
                             AMQP::Envelope envelope(static_cast<char *>((void *) data.data()),
                                                     static_cast<uint64_t>(data.size()));
@@ -399,7 +382,6 @@ namespace capy::amqp {
 
                               listeners_.get(correlation_id)->report_data(Rpc(routing_key, received), replay);
 
-                              //replay.commit();
                             }
 
                             catch (json::exception &exception) {
