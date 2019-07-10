@@ -17,7 +17,7 @@ capy::amqp::DeferredListen& simulate_deferred() {
       handler->report_error(capy::Error(capy::amqp::CommonError::UNKNOWN, "Something error occurred"));
 
       capy::amqp::Request request(capy::amqp::Rpc("key", {"result", true}));
-      capy::amqp::Replay replay;
+      capy::amqp::Replay *replay = new capy::amqp::Replay();
 
       handler->report_data(request, replay);
   });
@@ -34,11 +34,11 @@ capy::amqp::DeferredListen& simulate_deferred() {
       std::this_thread::sleep_for(std::chrono::milliseconds(2));
 
       capy::amqp::Request request(capy::amqp::Rpc("key", {"result", true}));
-      capy::amqp::Replay replay;
+      capy::amqp::Replay *replay = new capy::amqp::Replay();
 
       handler->report_data(request, replay);
 
-      std::cout << "report_data: " << replay->dump(4) << std::endl;
+      std::cout << "report_data: " << replay->message->dump(4) << std::endl;
   });
 
 
@@ -52,9 +52,11 @@ TEST(Deferred, DeferredTest) {
 
   simulate_deferred()
 
-          .on_data([](const capy::amqp::Request& request, capy::amqp::Replay& replay){
+          .on_data([](const capy::amqp::Request& request, capy::amqp::Replay* replay){
               std::cout << "Deferred: on_data: " << request->message.dump(4) << std::endl;
-              replay.value() = {"replay", "payload..."};
+              capy::json json = {"replay", "payload..."};
+              replay->message = json;
+              replay->commit();
           })
 
           .on_success([]{
