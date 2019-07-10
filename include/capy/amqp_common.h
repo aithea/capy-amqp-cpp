@@ -9,6 +9,7 @@
 #include <optional>
 
 #include "capy/amqp_expected.h"
+#include "capy/amqp_cache.h"
 #include "nlohmann/json.h"
 
 #define PUBLIC_ENUM(OriginalType) std::underlying_type_t<OriginalType>
@@ -18,19 +19,54 @@ namespace capy {
 
     using namespace nonstd;
 
+    /***
+     * Main universal intercommunication structure
+     */
     typedef nlohmann::json json;
+
+    struct Error;
+
+    /***
+     * Error handler spec
+     */
+    using ErrorHandler  = std::function<void(const Error &error)>;
 
     /***
      * Common Error handler
      */
     struct Error {
 
+        /***
+         * Create Error object from error condition or exception message string
+         * @param code error condition code
+         * @param message exception string
+         */
         Error(const std::error_condition code, const std::optional<std::string>& message = std::nullopt);
+
+        /***
+         * Get the error value
+         * @return code
+         */
         const int value() const;
+
+        /***
+         * Get the error message string
+         * @return error message
+         */
         const std::string message() const;
 
+        /***
+         * Error is negative or error can be skipped
+         * @return true if error occurred
+         */
         operator bool() const;
 
+        /***
+         * Error standard streaming
+         * @param os
+         * @param error
+         * @return
+         */
         friend std::ostream& operator<<(std::ostream& os, const Error& error) {
           os << error.value() << "/" << error.message();
           return os;
@@ -79,7 +115,7 @@ namespace capy {
     */
     const std::string error_string(const char* format, ...);
 
-    static inline void _throw_abort(const char* file, int line, const char* msg)
+    static inline void _throw_abort(const char* file, int line, const std::string& msg)
     {
       std::cerr << "Capy logic error: assert failed:\t" << msg << "\n"
                 << "Capy logic error: source:\t\t" << file << ", line " << line << "\n";
@@ -97,6 +133,90 @@ namespace capy {
 
 namespace capy::amqp {
 
+    /**
+     * Rpc callback containser
+     */
+    struct Rpc {
+        /**
+         * Routnig key
+         */
+        std::string routing_key;
+
+        /**
+         * Request message
+         */
+        capy::json  message;
+
+        Rpc() = default;
+        Rpc(const Rpc&) = default;
+        Rpc(const std::string& akey, const capy::json& aMessage): routing_key(akey), message(aMessage){};
+    };
+
+    /**
+     * Expected fetching response data type
+     */
+    typedef Result<json> Response;
+
+    /**
+     * Expected listening request data type. Contains json-like structure of action key and routing key of queue
+     */
+    typedef Result<Rpc> Request;
+
+
+    typedef Result<json> ReplayType;
+
+    class BrokerImpl;
+
+    /**
+    * Replay data
+    */
+    class Replay {
+
+        using Handler  = std::function<void(Replay* replay)>;
+
+        friend class BrokerImpl;
+
+    public:
+        /**
+         * Replay message structure
+         */
+        ReplayType message;
+
+        /**
+         * Empty replay constructor
+         */
+        Replay();
+
+        /**
+         * Commit replay and send message to queue
+         */
+        void commit();
+
+        /**
+         * Set complete replay handler
+         * @param complete_handler
+         */
+        void set_complete(const Handler& complete_handler);
+
+        ~Replay();
+
+    protected:
+        void set_commit(const std::optional<Handler>& commit_handler);
+    private:
+        std::optional<Handler> commit_handler_;
+        std::optional<Handler> complete_handler_;
+    };
+
+    /***
+     * Fetcher handling request
+     */
+    typedef std::function<void(const Response& request)> FetchHandler;
+
+    /***
+     * Listener handling action request and replies
+     */
+    typedef std::function<void(const Request& request, Replay& replay)> ListenHandler;
+
     /***
      * Common error codes
      */
@@ -105,32 +225,32 @@ namespace capy::amqp {
         /***
          * Skip the error
          */
-        OK = 0,
+                OK = 0,
 
         /***
          * not supported error
          */
-        NOT_SUPPORTED = 300,
+                NOT_SUPPORTED = 300,
 
         /***
          * unknown error
          */
-        UNKNOWN,
+                UNKNOWN,
 
         /***
          * Resource not found
          */
-        NOT_FOUND,
+                NOT_FOUND,
 
         /***
          * Collection range excaption
          */
-        OUT_OF_RANGE,
+                OUT_OF_RANGE,
 
         /**
          * the last error code
          */
-        LAST
+                LAST
     };
 
     /***

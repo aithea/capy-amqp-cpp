@@ -1,1 +1,1 @@
-capy_amqp_cpp 0.3.2
+capy_amqp_cpp 0.5.0
