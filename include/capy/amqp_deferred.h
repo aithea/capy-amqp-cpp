@@ -12,6 +12,7 @@
 #include <thread>
 #include <atomic>
 #include <optional>
+#include <shared_mutex>
 
 namespace capy::amqp {
 
@@ -80,6 +81,7 @@ namespace capy::amqp {
          * @return the object
          */
         const Deferred &report_data(Types... parameters) const {
+          std::shared_lock lock(mutex_);
           if (*this && data_handler_) data_handler_.value()(parameters...);
           return *this;
         }
@@ -89,6 +91,7 @@ namespace capy::amqp {
          * @return the object
          */
         const Deferred &report_success() {
+          std::shared_lock lock(mutex_);
           failed_ = false;
           if (success_handler_) success_handler_.value()();
           return *this;
@@ -100,6 +103,7 @@ namespace capy::amqp {
          * @return the object
          */
         const Deferred &report_error(const Error &error) {
+          std::shared_lock lock(mutex_);
           error_ = error;
           if (error_) {
             failed_ = true;
@@ -165,6 +169,7 @@ namespace capy::amqp {
         std::optional<FinalizeHandler> finalize_handler_ = std::nullopt;
 
     private:
+        mutable std::shared_mutex mutex_;
         Error error_;
         bool failed_;
 

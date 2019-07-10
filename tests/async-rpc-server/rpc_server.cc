@@ -8,7 +8,7 @@
 #include <ctime>
 #include <cstdlib>
 
-#define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
+#define CAPY_RPC_TEST_EMULATE_COMPUTATION 1
 #define CAPY_RPC_TEST_EMULATE_ERROR 0
 
 TEST(Exchange, AsyncListenTest) {
@@ -52,6 +52,10 @@ TEST(Exchange, AsyncListenTest) {
 
             .on_data([&counter](const capy::amqp::Request &request, capy::amqp::Replay* replay) {
 
+                replay->set_complete([](capy::amqp::Replay* replay){
+                    std::cout << " ... complete replay ... " << std::endl;
+                });
+
                 if (!request) {
                   std::cerr << " listen error: " << request.error().value() << "/" << request.error().message()
                             << std::endl;
@@ -84,7 +88,7 @@ TEST(Exchange, AsyncListenTest) {
 
                   } else {
 
-                      replay->message.value() = {"reply", true, counter, r};
+                    replay->message.value() = {"reply", true, counter, r};
 
                   }
 
@@ -102,7 +106,6 @@ TEST(Exchange, AsyncListenTest) {
                 }
 
                 replay->commit();
-                //replay->error().commit();
             })
 
             .on_success([] {

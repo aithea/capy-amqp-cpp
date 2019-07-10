@@ -133,9 +133,20 @@ namespace capy {
 
 namespace capy::amqp {
 
+    /**
+     * Rpc callback containser
+     */
     struct Rpc {
+        /**
+         * Routnig key
+         */
         std::string routing_key;
+
+        /**
+         * Request message
+         */
         capy::json  message;
+
         Rpc() = default;
         Rpc(const Rpc&) = default;
         Rpc(const std::string& akey, const capy::json& aMessage): routing_key(akey), message(aMessage){};
@@ -151,27 +162,49 @@ namespace capy::amqp {
      */
     typedef Result<Rpc> Request;
 
-    /**
-     * Replay data type
-     */
+
     typedef Result<json> ReplayType;
+
+    class BrokerImpl;
+
+    /**
+    * Replay data
+    */
     class Replay {
 
-        using CommitHandler  = std::function<void(Replay* replay)>;
+        using Handler  = std::function<void(Replay* replay)>;
+
+        friend class BrokerImpl;
 
     public:
-        //using ReplayType::ReplayType;
+        /**
+         * Replay message structure
+         */
         ReplayType message;
 
-        //Replay(const std::optional<CommitHandler>& commit_handler = nullptr);
+        /**
+         * Empty replay constructor
+         */
         Replay();
-        ~Replay();
 
-        void set_commit(const std::optional<CommitHandler>& commit_handler);
+        /**
+         * Commit replay and send message to queue
+         */
         void commit();
 
+        /**
+         * Set complete replay handler
+         * @param complete_handler
+         */
+        void set_complete(const Handler& complete_handler);
+
+        ~Replay();
+
+    protected:
+        void set_commit(const std::optional<Handler>& commit_handler);
     private:
-        std::optional<CommitHandler> commit_handler_;
+        std::optional<Handler> commit_handler_;
+        std::optional<Handler> complete_handler_;
     };
 
     /***

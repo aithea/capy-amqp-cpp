@@ -51,6 +51,9 @@ namespace capy::amqp {
       std::cout << " *** ~Replay " << (this->message.has_value() ? this->message.value().dump() : this->message.error().message()) << std::endl;
       //if (!this->has_value())
       //  commit();
+      if (complete_handler_){
+        complete_handler_.value()(this);
+      }
     }
 
     //Replay::Replay(const std::optional<capy::amqp::Replay::CommitHandler> &commit_handler):
@@ -59,7 +62,11 @@ namespace capy::amqp {
     commit_handler_(nullptr)
     {}
 
-    void Replay::set_commit(const std::optional<capy::amqp::Replay::CommitHandler> &commit_handler) {
+    void Replay::set_complete(const capy::amqp::Replay::Handler &complete_handler) {
+      complete_handler_ = complete_handler;
+    }
+
+    void Replay::set_commit(const std::optional<capy::amqp::Replay::Handler> &commit_handler) {
       commit_handler_ = commit_handler;
     }
 

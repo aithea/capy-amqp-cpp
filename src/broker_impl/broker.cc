@@ -139,6 +139,10 @@ namespace capy::amqp {
                           envelope->setCorrelationID(correlation_id);
                           envelope->setReplyTo(name);
 
+                          if (!fetchers_.has(correlation_id)) {
+                            return;
+                          }
+
                           auto& channel = fetchers_.get(correlation_id)->get_channel();
 
                           channel.startTransaction();
@@ -149,7 +153,8 @@ namespace capy::amqp {
                           channel
                                   .commitTransaction()
                                   .onError([this,correlation_id](const char *message) {
-                                      fetchers_.get(correlation_id)->report_error(Error(BrokerError::PUBLISH, message));
+                                    if (fetchers_.has(correlation_id))
+                                        fetchers_.get(correlation_id)->report_error(Error(BrokerError::PUBLISH, message));
                                   });
 
 
@@ -176,10 +181,12 @@ namespace capy::amqp {
                                         received = json::from_msgpack(buffer);
                                       }
                                       catch (std::exception &exception) {
-                                        fetchers_.get(correlation_id)->report_error(Error(BrokerError::DATA_RESPONSE, exception.what()));
+                                        if (fetchers_.has(correlation_id))
+                                          fetchers_.get(correlation_id)->report_error(Error(BrokerError::DATA_RESPONSE, exception.what()));
                                       }
                                       catch (...) {
-                                        fetchers_.get(correlation_id)->report_error(Error(BrokerError::DATA_RESPONSE, "unknown error"));
+                                        if (fetchers_.has(correlation_id))
+                                          fetchers_.get(correlation_id)->report_error(Error(BrokerError::DATA_RESPONSE, "unknown error"));
                                       }
 
                                       {
@@ -188,7 +195,8 @@ namespace capy::amqp {
                                         ///
 
                                         try {
-                                          fetchers_.get(correlation_id)->report_data(received);
+                                          if (fetchers_.has(correlation_id))
+                                            fetchers_.get(correlation_id)->report_data(received);
                                         }
                                         catch (json::exception &exception) {
                                           ///
@@ -201,26 +209,33 @@ namespace capy::amqp {
                                           throw_abort("Unexpected exception...");
                                         }
 
-                                        fetchers_.del(correlation_id);
+                                        if (fetchers_.has(correlation_id))
+                                          fetchers_.del(correlation_id);
 
                                       }
 
                                   })
 
                                   .onSuccess([this,correlation_id]{
-                                      fetchers_.get(correlation_id)->report_success();
+                                      if (fetchers_.has(correlation_id))
+                                        fetchers_.get(correlation_id)->report_success();
                                   })
 
                                   .onError([correlation_id, this](const char *message) {
-                                      fetchers_.get(correlation_id)->report_error(Error(BrokerError::DATA_RESPONSE, message));
-                                      fetchers_.del(correlation_id);
+                                      if (fetchers_.has(correlation_id)){
+                                        fetchers_.get(correlation_id)->report_error(Error(BrokerError::DATA_RESPONSE, message));
+                                        fetchers_.del(correlation_id);
+                                      }
+
                                   });
 
                       })
 
               .onError([this, correlation_id](const char *message) {
-                  fetchers_.get(correlation_id)->report_error(Error(BrokerError::QUEUE_DECLARATION, message));
-                  fetchers_.del(correlation_id);
+                  if (fetchers_.has(correlation_id)){
+                    fetchers_.get(correlation_id)->report_error(Error(BrokerError::QUEUE_DECLARATION, message));
+                    fetchers_.del(correlation_id);
+                  }
               });
 
       return *deferred;
@@ -307,16 +322,14 @@ namespace capy::amqp {
 
                   connections_->reset_deferred();
 
-                  capy::amqp::Task::Instance().async([ this,
-                                                             correlation_id,
-                                                             replay_to,
-                                                             routing_key,
-                                                             received,
-                                                             cid,
-                                                             deliveryTag
-                                                     ] {
-
-                      try {
+//                  capy::amqp::Task::Instance().async([ this,
+//                                                             correlation_id,
+//                                                             replay_to,
+//                                                             routing_key,
+//                                                             received,
+//                                                             cid,
+//                                                             deliveryTag
+//                                                     ] {
 
                         //std::shared_ptr<Replay> replay;
 
@@ -358,36 +371,51 @@ namespace capy::amqp {
                             channel->publish("", replay_to, envelope);
 
                             channel->commitTransaction()
-                                    .onSuccess([r]{
+                                    .onSuccess([r,channel]{
                                         delete r;
+                                        delete channel;
                                     })
-                                    .onError([this, correlation_id](const char *message) {
+                                    .onError([this, r, channel,  correlation_id](const char *message) {
                                         listeners_.get(correlation_id)->report_error(capy::Error(BrokerError::PUBLISH, message));
+                                        delete r;
+                                        delete channel;
                                     });
 
-                            delete channel;
 
                         });
 
-                        listeners_.get(correlation_id)->report_data(Rpc(routing_key, received), replay);
+                        capy::amqp::Task::Instance().async([ this,
+                                                                   correlation_id,
+                                                                   //replay_to,
+                                                                   routing_key,
+                                                                   received,
+                                                                   //cid,
+                                                                   //deliveryTag,
+                                                                   replay
+                                                           ] {
 
-                        //replay.commit();
-                      }
 
-                      catch (json::exception &exception) {
-                        ///
-                        /// Some programmatic exception is not processing properly
-                        ///
+                            try {
 
-                        connections_->reset_deferred();
-                        listeners_.del(correlation_id);
-                        throw_abort(exception.what());
-                      }
-                      catch (...) {
-                        connections_->reset_deferred();
-                        listeners_.del(correlation_id);
-                        throw_abort("Unexpected exception...");
-                      }
+                              listeners_.get(correlation_id)->report_data(Rpc(routing_key, received), replay);
+
+                              //replay.commit();
+                            }
+
+                            catch (json::exception &exception) {
+                              ///
+                              /// Some programmatic exception is not processing properly
+                              ///
+
+                              connections_->reset_deferred();
+                              listeners_.del(correlation_id);
+                              throw_abort(exception.what());
+                            }
+                            catch (...) {
+                              connections_->reset_deferred();
+                              listeners_.del(correlation_id);
+                              throw_abort("Unexpected exception...");
+                            }
                   });
 
               })
