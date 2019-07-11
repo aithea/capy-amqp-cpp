@@ -321,6 +321,7 @@ namespace capy::amqp {
                       uint64_t deliveryTag,
                       bool redelivered) {
 
+
                   (void) redelivered;
 
                   std::vector<std::uint8_t> buffer(
@@ -334,6 +335,7 @@ namespace capy::amqp {
                   capy::json received;
 
                   listeners_.get(correlation_id)->get_channel().ack(deliveryTag);
+
 
                   try {
                     received = json::from_msgpack(buffer);
@@ -392,35 +394,27 @@ namespace capy::amqp {
                               });
                   });
 
-                  capy::amqp::Task::Instance().async([ this,
-                                                             correlation_id,
-                                                             routing_key,
-                                                             received,
-                                                             replay
-                                                     ] {
 
+                  try {
 
-                      try {
+                    listeners_.get(correlation_id)->report_data(Rpc(routing_key, received), replay);
 
-                        listeners_.get(correlation_id)->report_data(Rpc(routing_key, received), replay);
+                  }
 
-                      }
+                  catch (json::exception &exception) {
+                    ///
+                    /// Some programmatic exception is not processing properly
+                    ///
 
-                      catch (json::exception &exception) {
-                        ///
-                        /// Some programmatic exception is not processing properly
-                        ///
-
-                        connections_->reset_deferred();
-                        listeners_.del(correlation_id);
-                        throw_abort(exception.what());
-                      }
-                      catch (...) {
-                        connections_->reset_deferred();
-                        listeners_.del(correlation_id);
-                        throw_abort("Unexpected exception...");
-                      }
-                  });
+                    connections_->reset_deferred();
+                    listeners_.del(correlation_id);
+                    throw_abort(exception.what());
+                  }
+                  catch (...) {
+                    connections_->reset_deferred();
+                    listeners_.del(correlation_id);
+                    throw_abort("Unexpected exception...");
+                  }
 
               })
 

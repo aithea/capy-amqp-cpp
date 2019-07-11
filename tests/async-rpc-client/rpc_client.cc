@@ -13,7 +13,16 @@ TEST(Exchange, AsyncFetchTest) {
 
   std::cout << std::endl;
 
-  auto address = capy::amqp::Address::From("amqp://guest:guest@localhost:5672/");
+  auto login = capy::get_dotenv("CAPY_AMQP_ADDRESS");
+
+  EXPECT_TRUE(login);
+
+  if (!login) {
+    std::cerr << "CAPY_AMQP_ADDRESS: " << login.error().message() << std::endl;
+    return;
+  }
+
+  auto address = capy::amqp::Address::From(*login);
 
   EXPECT_TRUE(address);
 
@@ -32,6 +41,8 @@ TEST(Exchange, AsyncFetchTest) {
               << std::endl;
     return;
   }
+
+  broker->run();
 
   int max_count = CAPY_RPC_TEST_COUNT;
 
@@ -96,8 +107,6 @@ TEST(Exchange, AsyncFetchTest) {
 #endif
 
   }
-
-  broker->run();
 
   capy::dispatchq::main::loop::run();
 }

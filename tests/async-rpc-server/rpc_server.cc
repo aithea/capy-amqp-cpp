@@ -8,14 +8,23 @@
 #include <ctime>
 #include <cstdlib>
 
-#define CAPY_RPC_TEST_EMULATE_COMPUTATION 1
+#define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
 #define CAPY_RPC_TEST_EMULATE_ERROR 0
 
 TEST(Exchange, AsyncListenTest) {
 
   srand(time(0));
 
-  auto address = capy::amqp::Address::From("amqp://guest:guest@localhost:5672/");
+  auto login = capy::get_dotenv("CAPY_AMQP_ADDRESS");
+
+  EXPECT_TRUE(login);
+
+  if (!login) {
+    std::cerr << "CAPY_AMQP_ADDRESS: " << login.error().message() << std::endl;
+    return;
+  }
+
+  auto address = capy::amqp::Address::From(*login);
 
   EXPECT_TRUE(address);
 
