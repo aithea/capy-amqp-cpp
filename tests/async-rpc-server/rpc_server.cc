@@ -52,7 +52,7 @@ TEST(Exchange, AsyncListenTest) {
 
             .on_data([&counter](const capy::amqp::Request &request, capy::amqp::Replay* replay) {
 
-                replay->set_complete([](capy::amqp::Replay* replay){
+                replay->on_complete([](capy::amqp::Replay* replay){
                     std::cout << " ... complete replay ... " << std::endl;
                 });
 
@@ -126,7 +126,6 @@ TEST(Exchange, AsyncListenTest) {
                 }catch (...){}
 
             });
-
 
     broker->run();
 

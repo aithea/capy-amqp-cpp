@@ -21,6 +21,29 @@
 
 namespace capy::amqp {
 
+    class BrokerImpl;
+
+    struct ReplayImpl: public Replay{
+
+        using Handler  = std::function<void(Replay* replay)>;
+
+        friend class BrokerImpl;
+
+        using Replay::Replay;
+
+        ReplayImpl();
+        virtual  ~ReplayImpl();
+
+        virtual void commit() override;
+
+        void set_commit(const Handler& commit_handler);
+        void on_complete(const Handler& complete_handler) override ;
+
+    private:
+        std::optional<Handler> commit_handler_;
+        std::optional<Handler> complete_handler_;
+    };
+
     inline static uv_loop_t * uv_loop_t_allocator() {
       uv_loop_t *loop = (uv_loop_t*)malloc(sizeof(uv_loop_t));
       uv_loop_init(loop);

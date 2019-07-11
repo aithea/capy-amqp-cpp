@@ -57,7 +57,7 @@ TEST(Exchange, AsyncFetchTest) {
 
     broker->fetch(action, key)
 
-            .on_data([i, max_count](const capy::amqp::Response &response){
+            .on_data([i, max_count](const capy::amqp::Payload &response){
 
                 if (response){
                   std::cout << "fetch["<< i << "] received: " <<  response->dump(4) << std::endl;

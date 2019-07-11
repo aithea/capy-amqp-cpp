@@ -17,7 +17,7 @@ capy::amqp::DeferredListen& simulate_deferred() {
       handler->report_error(capy::Error(capy::amqp::CommonError::UNKNOWN, "Something error occurred"));
 
       capy::amqp::Request request(capy::amqp::Rpc("key", {"result", true}));
-      capy::amqp::Replay *replay = new capy::amqp::Replay();
+      capy::amqp::Replay *replay = new capy::amqp::ReplayImpl();
 
       handler->report_data(request, replay);
   });
@@ -34,7 +34,7 @@ capy::amqp::DeferredListen& simulate_deferred() {
       std::this_thread::sleep_for(std::chrono::milliseconds(2));
 
       capy::amqp::Request request(capy::amqp::Rpc("key", {"result", true}));
-      capy::amqp::Replay *replay = new capy::amqp::Replay();
+      capy::amqp::Replay *replay = new capy::amqp::ReplayImpl();
 
       handler->report_data(request, replay);
 

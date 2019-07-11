@@ -137,7 +137,7 @@ $ make; sudo make install
     
     broker->listen("capy-test", {"something.find","anywhere.thing"})
     
-            .on_data([](const capy::amqp::Request &request, capy::amqp::Replay &replay) {
+            .on_data([](const capy::amqp::Request &request, capy::amqp::Replay* replay) {
     
                 if (request) {
                     //
@@ -161,7 +161,7 @@ $ make; sudo make install
                         //
                         // Запрос корректо обработан отсылаем данные
                         //
-                        replay.value() = {"data", "some data..."};
+                        replay->message.value() = {"data", "some data..."};
                      }              
                  
                 } else {
@@ -171,8 +171,15 @@ $ make; sudo make install
                         
                     capy::workspace::Logger::log->critical("Router: amqp broker error: {}", request.error().message());
     
-                    replay = capy::make_unexpected(request.error());
+                    replay->message = capy::make_unexpected(request.error());
                 }
+                
+                //
+                // Завершить процессинг и ответить в очередь
+                // capy::amqp::Replay - одноразовый объект, нельзя выполнять повторные вызовы 
+                // replay::commit для текущего состояния контекста                    
+                //
+                replay->commit();
             })
     
             .on_success([] {
@@ -225,7 +232,7 @@ $ make; sudo make install
     */
     broker->fetch(action, "somthing.find")
    
-               .on_data([](const capy::amqp::Response &response){
+               .on_data([](const capy::amqp::Payload &response){
    
                    if (response){
                         //

@@ -133,54 +133,55 @@ namespace capy {
 
 namespace capy::amqp {
 
-    /**
-     * Rpc callback containser
-     */
-    struct Rpc {
-        /**
-         * Routnig key
-         */
-        std::string routing_key;
-
+    struct PayloadContainer {
+    public:
         /**
          * Request message
          */
         capy::json  message;
 
+        PayloadContainer() = default;
+        PayloadContainer(const PayloadContainer&) = default;
+        PayloadContainer(const capy::json& json):message(json){};
+        virtual ~PayloadContainer() = default;
+    };
+
+    /**
+     * Rpc callback container
+     */
+    struct Rpc: public PayloadContainer {
+        /**
+         * Rpc routnig key
+         */
+        std::string routing_key;
+
         Rpc() = default;
         Rpc(const Rpc&) = default;
-        Rpc(const std::string& akey, const capy::json& aMessage): routing_key(akey), message(aMessage){};
+        Rpc(const std::string& key, const capy::json& message):PayloadContainer(message), routing_key(key){};
     };
 
     /**
      * Expected fetching response data type
      */
-    typedef Result<json> Response;
+    typedef Result<json> Payload;
 
     /**
      * Expected listening request data type. Contains json-like structure of action key and routing key of queue
      */
     typedef Result<Rpc> Request;
 
-
-    typedef Result<json> ReplayType;
-
-    class BrokerImpl;
-
     /**
-    * Replay data
+    * Replay data container
     */
-    class Replay {
+    struct Replay {
+    public:
 
         using Handler  = std::function<void(Replay* replay)>;
 
-        friend class BrokerImpl;
-
-    public:
         /**
          * Replay message structure
          */
-        ReplayType message;
+        Payload message;
 
         /**
          * Empty replay constructor
@@ -188,34 +189,30 @@ namespace capy::amqp {
         Replay();
 
         /**
-         * Commit replay and send message to queue
+         * Default copy constructor
          */
-        void commit();
+        Replay(const Replay&) = default;
 
         /**
-         * Set complete replay handler
-         * @param complete_handler
+         * Default move constructor
          */
-        void set_complete(const Handler& complete_handler);
+        Replay(Replay&&) = default;
 
-        ~Replay();
+        /**
+         * Commit replay and send message to queue
+         */
+        virtual void commit() = 0;
 
-    protected:
-        void set_commit(const std::optional<Handler>& commit_handler);
-    private:
-        std::optional<Handler> commit_handler_;
-        std::optional<Handler> complete_handler_;
+        /**
+         * Destroy replay object
+         */
+        virtual ~Replay();
+
+        /**
+         * On complete event
+         */
+        virtual void on_complete(const Handler&) = 0;
     };
-
-    /***
-     * Fetcher handling request
-     */
-    typedef std::function<void(const Response& request)> FetchHandler;
-
-    /***
-     * Listener handling action request and replies
-     */
-    typedef std::function<void(const Request& request, Replay& replay)> ListenHandler;
 
     /***
      * Common error codes

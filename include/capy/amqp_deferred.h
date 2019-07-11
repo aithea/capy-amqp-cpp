@@ -3,7 +3,7 @@
 //
 
 #pragma once
-#include "amqp_common.h"
+#include "capy/amqp_common.h"
 #include "capy/dispatchq.h"
 
 #include <functional>
@@ -184,10 +184,10 @@ namespace capy::amqp {
     /***
     * Fetcher handling request
     */
-    using DeferredFetch  = Deferred<const Response &>;
+    using DeferredFetch  = Deferred<const Payload&>;
 
     /***
     * Listener handling action request and replies
     */
-    using DeferredListen = Deferred<const Request &, Replay*>;
+    using DeferredListen = Deferred<const Request&, Replay*>;
 }
