@@ -8,31 +8,10 @@
 #include <ctime>
 #include <cstdlib>
 
-#define CAPY_RPC_TEST_EMULATE_COMPUTATION 0
+#define CAPY_RPC_TEST_EMULATE_COMPUTATION 1
 #define CAPY_RPC_TEST_EMULATE_ERROR 0
 
-TEST(Exchange, AsyncListenTest) {
-
-  srand(time(0));
-
-  auto login = capy::get_dotenv("CAPY_AMQP_ADDRESS");
-
-  EXPECT_TRUE(login);
-
-  if (!login) {
-    std::cerr << "CAPY_AMQP_ADDRESS: " << login.error().message() << std::endl;
-    return;
-  }
-
-  auto address = capy::amqp::Address::From(*login);
-
-  EXPECT_TRUE(address);
-
-  if (!address) {
-    std::cerr << "amqp address error: " << address.error().value() << " / " << address.error().message()
-              << std::endl;
-    return;
-  }
+void run_service(const capy::amqp::Address& address) {
 
   int counter = 0;
 
@@ -42,7 +21,7 @@ TEST(Exchange, AsyncListenTest) {
 
     std::cout << " ... error_state: " << error_state << std::endl;
 
-    capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(*address, [](const capy::Error& error){
+    capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(address, [](const capy::Error& error){
         std::cerr << "amqp broker error: " << error.value() << " / " << error.message()
                   << std::endl;
     });
@@ -89,7 +68,7 @@ TEST(Exchange, AsyncListenTest) {
                   }
 #endif
 
-                  if (counter % 2 == 0) {
+                  if (counter % 11 == 0) {
 
                     replay->message = capy::make_unexpected(capy::Error(
                             capy::amqp::BrokerError::DATA_RESPONSE,
@@ -104,7 +83,7 @@ TEST(Exchange, AsyncListenTest) {
                   if (!replay) {
                     std::cout << " listen replay: " << replay->message.error().message() << std::endl;
                   } else {
-                    std::cout << " listen replay: " << replay->message.value_or(capy::json({"is empty"})).dump(4) << std::endl;
+                    std::cout << " listen replay[#thread:"<<std::this_thread::get_id()<<"]: " << replay->message.value_or(capy::json({"is empty"})).dump(4) << std::endl;
                   }
 
 #if CAPY_RPC_TEST_EMULATE_COMPUTATION == 1
@@ -144,6 +123,39 @@ TEST(Exchange, AsyncListenTest) {
 
   } while (error_state != static_cast<int>(capy::amqp::CommonError::OK));
 
+}
+
+TEST(Exchange, AsyncListenTest) {
+
+  srand(time(0));
+
+  auto login = capy::get_dotenv("CAPY_AMQP_ADDRESS");
+
+  EXPECT_TRUE(login);
+
+  if (!login) {
+    std::cerr << "CAPY_AMQP_ADDRESS: " << login.error().message() << std::endl;
+    return;
+  }
+
+  auto address = capy::amqp::Address::From(*login);
+
+  EXPECT_TRUE(address);
+
+  if (!address) {
+    std::cerr << "amqp address error: " << address.error().value() << " / " << address.error().message()
+              << std::endl;
+    return;
+  }
+
+  int size   = 4;
+  auto queue = capy::dispatchq::Queue(size);
+
+  for (int i = 0; i < size; ++i) {
+    queue.async([address]{
+        run_service(*address);
+    });
+  }
 
   std::cout << "Start main thread loop " << std::endl;
 

@@ -58,7 +58,7 @@ $ make; sudo make install
 #### Install AMQP-CPP:
 ```
 $ git clone https://github.com/dnevera/AMQP-CPP
-$ cd AMQP-CPP; mkdir build; cd build; cmake  -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DCMAKE_INSTALL_PREFIX=/usr/local -DAMQP-CPP_LINUX_TCP=ON -DAMQP-CPP_BUILD_SHARED=OFF -DAMQP-CPP_BUILD_EXAMPLES=OFF ..
+$ cd AMQP-CPP; mkdir build; cd build; cmake  [-DCMAKE_CXX_COMPILER=g++-8] -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl -DCMAKE_INSTALL_PREFIX=/usr/local -DAMQP-CPP_LINUX_TCP=ON -DAMQP-CPP_BUILD_SHARED=OFF -DAMQP-CPP_BUILD_EXAMPLES=OFF ..
 $ make; sudo make install
 ```
 
