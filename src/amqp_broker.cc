@@ -86,8 +86,8 @@ namespace capy::amqp {
       return impl_->listen_messages(queue,routing_keys);
     }
 
-    void Broker::run() {
-      impl_->run();
+    void Broker::run(const Launch launch) {
+      impl_->run(launch);
     }
 
     //

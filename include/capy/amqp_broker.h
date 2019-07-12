@@ -70,6 +70,16 @@ namespace capy::amqp {
 
     public:
 
+        /**
+         * Launching type
+         */
+        enum class Launch:int {
+            async = 0,
+            sync
+        };
+
+    public:
+
         const constexpr static uint16_t heartbeat_timeout = 60;
 
         /***
@@ -137,7 +147,7 @@ namespace capy::amqp {
         DeferredListen& listen(const std::string& queue, const std::vector<std::string>& keys);
 
 
-        void run();
+        void run(const Launch launch = Launch::async);
 
     protected:
         Broker();

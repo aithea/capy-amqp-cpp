@@ -67,22 +67,34 @@ namespace capy::amqp {
       connections_->flush();
     }
 
-    void BrokerImpl::run() {
+    void BrokerImpl::run(const Broker::Launch launch) {
 
-      thread_loop_ = std::thread([this] {
+      switch (launch) {
+        case Broker::Launch ::async:
+        {
+          thread_loop_ = std::thread([this] {
 
-//          uv_timer_t timer_req;
-//
-//          timer_req.data = this;
-//
-//          uv_timer_init(loop_.get(), &timer_req);
-//          uv_timer_start(&timer_req, monitor, 0, 1000);
+              /**
+                uv_timer_t timer_req;
 
+                timer_req.data = this;
+
+                uv_timer_init(loop_.get(), &timer_req);
+                xuv_timer_start(&timer_req, monitor, 0, 1000);
+               */
+
+              uv_run(loop_.get(), UV_RUN_DEFAULT);
+
+          });
+
+          thread_loop_.detach();
+        }
+          break;
+
+        case Broker::Launch::sync:
           uv_run(loop_.get(), UV_RUN_DEFAULT);
-
-      });
-
-      thread_loop_.detach();
+          break;
+      }
     }
 
     ///

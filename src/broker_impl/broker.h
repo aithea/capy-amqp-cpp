@@ -191,6 +191,6 @@ namespace capy::amqp {
         Error publish_message(const json &message, const std::string &routing_key);
 
 
-        void run();
+        void run(const capy::amqp::Broker::Launch launch);
     };
 }

@@ -115,7 +115,7 @@ void run_service(const capy::amqp::Address& address) {
 
             });
 
-    broker->run();
+    broker->run(capy::amqp::Broker::Launch::sync);
 
     error_state = error_state_connection.get_future().get();
 
@@ -148,7 +148,7 @@ TEST(Exchange, AsyncListenTest) {
     return;
   }
 
-  int size   = 4;
+  int size   = std::thread::hardware_concurrency();
   auto queue = capy::dispatchq::Queue(size);
 
   for (int i = 0; i < size; ++i) {
