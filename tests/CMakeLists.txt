@@ -21,6 +21,9 @@ link_directories(
 
 add_subdirectory(initial)
 add_subdirectory(address)
-add_subdirectory(broker)
-add_subdirectory(amqp-cpp-async)
+add_subdirectory(deferred)
+add_subdirectory(sync-rpc-publish)
+add_subdirectory(async-rpc-server)
+add_subdirectory(async-rpc-client)
+add_subdirectory(pool)
 enable_testing ()

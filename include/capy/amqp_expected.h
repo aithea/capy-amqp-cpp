@@ -9,8 +9,7 @@
 //   A proposal to add a utility class to represent expected monad
 //   by Vicente J. Botet Escriba and Pierre Talbot. http:://wg21.link/p0323
 
-#ifndef NONSTD_EXPECTED_LITE_HPP
-#define NONSTD_EXPECTED_LITE_HPP
+#pragma once
 
 #define expected_lite_MAJOR  0
 #define expected_lite_MINOR  3
@@ -2272,5 +2271,3 @@ using unexpected = unexpected_type<E>;
 nsel_RESTORE_WARNINGS()
 
 #endif // nsel_USES_STD_EXPECTED
-
-#endif // NONSTD_EXPECTED_LITE_HPP

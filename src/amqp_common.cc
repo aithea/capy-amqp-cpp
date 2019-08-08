@@ -5,6 +5,7 @@
 #include "capy/amqp_common.h"
 #include <string>
 #include <cstdarg>
+#include <iostream>
 
 namespace capy {
 
@@ -46,6 +47,12 @@ namespace capy::amqp {
 
     using namespace std;
 
+    Replay::~Replay() {
+    }
+
+    Replay::Replay():
+    message()
+    {}
 
     const char *ErrorCategory::name() const noexcept {
       return "capy.amqp";

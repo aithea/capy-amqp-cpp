@@ -18,42 +18,9 @@
 #include "capy/amqp_common.h"
 #include "capy/amqp_address.h"
 #include "capy/amqp_expected.h"
+#include "capy/amqp_deferred.h"
 
 namespace capy::amqp {
-
-    struct Rpc {
-        std::string routing_key;
-        capy::json  message;
-        Rpc() = default;
-        Rpc(const Rpc&) = default;
-        Rpc(const std::string& akey, const capy::json& aMessage): routing_key(akey), message(aMessage){};
-    };
-
-    /**
-     * Expected fetching response data type
-     */
-    typedef Result<json> Response;
-
-    /**
-     * Expected listening request data type. Contains json-like structure of action key and routing key of queue
-     */
-    typedef Result<Rpc> Request;
-
-    /**
-     * Replay data type
-     */
-    typedef Result<json> Replay;
-
-
-    /***
-     * Fetcher handling request
-     */
-    typedef std::function<void(const Response& request)> FetchHandler;
-
-    /***
-     * Listener handling action request and replies
-     */
-    typedef std::function<void(const Request& request, Replay& replay)> ListenHandler;
 
     /***
      * AMQP Broker errors
@@ -64,12 +31,19 @@ namespace capy::amqp {
          * Connection error
          */
         CONNECTION = EXTEND_ENUM(CommonError, LAST),
+        CONNECTION_CLOSED,
+        CONNECTION_LOST,
+        MEMORY,
         LOGIN,
-        CHANNEL,
+        CHANNEL_READY,
+        CHANNEL_MESSAGE,
         PUBLISH,
+        EXCHANGE_DECLARATION,
         QUEUE_DECLARATION,
         QUEUE_BINDING,
         QUEUE_CONSUMING,
+        LISTENER_CONFLICT,
+        EMPTY_REPLAY,
         DATA_RESPONSE,
 
         LAST
@@ -96,6 +70,18 @@ namespace capy::amqp {
 
     public:
 
+        /**
+         * Launching type
+         */
+        enum class Launch:int {
+            async = 0,
+            sync
+        };
+
+    public:
+
+        const constexpr static uint16_t heartbeat_timeout = 60;
+
         /***
          *
          * Bind broker with amqp cloud and create Broker client object
@@ -104,7 +90,34 @@ namespace capy::amqp {
          * @param exchange_name exchange name
          * @return expected Broker object or Error report
          */
-        static Result <Broker> Bind(const Address& address, const std::string& exchange_name = "amq.topic");
+        static Result <Broker> Bind(
+                const Address& address,
+                const std::string& exchange_name,
+                uint16_t heartbeat_timeout,
+                const ErrorHandler& on_error);
+
+        static Result <Broker> Bind(
+                const Address& address,
+                const std::string& exchange_name){
+          return Broker::Bind(address, exchange_name, Broker::heartbeat_timeout, [](const Error& error){(void)error;});
+        }
+
+        static Result <Broker> Bind(
+                const Address& address,
+                const ErrorHandler& on_error){
+          return Broker::Bind(address, "amq.topic", Broker::heartbeat_timeout, on_error);
+        }
+
+        static Result <Broker> Bind(
+                const Address& address,
+                uint16_t heartbeat_timeout){
+          return Broker::Bind(address, "amq.topic", heartbeat_timeout, [](const Error& error){(void)error;});
+        }
+
+        static Result <Broker> Bind(
+                const Address& address){
+          return Broker::Bind(address, "amq.topic", Broker::heartbeat_timeout, [](const Error& error){(void)error;});
+        }
 
         /***
          * Publish message with routing key and exit
@@ -123,7 +136,7 @@ namespace capy::amqp {
          * @param on_data messaging handling
          * @return error or ok
          */
-        Error fetch(const json& message, const std::string& routing_key, const FetchHandler& on_data);
+        DeferredFetch& fetch(const json& message, const std::string& routing_key);
 
         /**
          * Listen queue bound list of certain topic keys
@@ -131,8 +144,10 @@ namespace capy::amqp {
          * @param keys topic keys
          * @param on_data messaging handling
          */
-        void listen(const std::string& queue, const std::vector<std::string>& keys, const ListenHandler& on_data);
+        DeferredListen& listen(const std::string& queue, const std::vector<std::string>& keys);
 
+
+        void run(const Launch launch = Launch::async);
 
     protected:
         Broker();

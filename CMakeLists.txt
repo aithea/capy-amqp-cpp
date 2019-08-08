@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.12)
 # Project
 #
 set(PROJECT_LIB capy_amqp_cpp)
-project(${PROJECT_LIB} VERSION 0.3.2)
+project(${PROJECT_LIB} VERSION 0.5.2)
 
 #
 # Options
@@ -138,35 +138,6 @@ else()
             )
     set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};amqpcpp)
     set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};amqpcpp)
-endif()
-
-#
-# Rabbit rappitmq-c
-#
-pkg_check_modules(librabbitmq librabbitmq)
-if (librabbitmq_FOUND)
-    message(STATUS "rabbitmq-c: ${librabbitmq_LIBRARIES}, ${librabbitmq_LIBRARY_DIRS} ${librabbitmq_INCLUDE_DIRS}")
-    include_directories(
-            ${librabbitmq_INCLUDE_DIRS}
-    )
-    link_directories(
-            ${librabbitmq_LIBRARY_DIRS}
-    )
-    set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};${librabbitmq_LIBRARIES})
-else()
-    ExternalProject_Add(rabbitmq-c
-            GIT_REPOSITORY https://github.com/alanxz/rabbitmq-c
-            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
-            -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
-            -DBUILD_EXAMPLES=OFF
-            -DBUILD_SHARED_LIBS=OFF
-            -DBUILD_STATIC_LIBS=ON
-            -DBUILD_TESTS=OFF
-            -DBUILD_TOOLS_DOCS=OFF
-            -DCMAKE_INSTALL_LIBDIR=${EXTERNAL_INSTALL_LOCATION}/lib
-            )
-    set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};rabbitmq-c)
-    set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};rabbitmq)
 endif()
 
 #

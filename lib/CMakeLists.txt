@@ -1,3 +1,5 @@
+include(CMakePackageConfigHelpers)
+
 set(CMAKE_INSTALL_PREFIX /usr/local/${PROJECT_LIB})
 
 include_directories(
@@ -28,6 +30,8 @@ FILE(GLOB INCLUDE_FILES
 
 FILE(GLOB SOURCES
         ../src/*.cc
+        ../src/broker_impl/*.cc
+        ../src/deferred_mpl/*.cc
         )
 
 add_library(
@@ -55,8 +59,6 @@ set(version_config "${generated_dir}/${PROJECT_NAME}ConfigVersion.cmake")
 set(project_config "${generated_dir}/${PROJECT_NAME}Config.cmake")
 set(TARGETS_EXPORT_NAME "${PROJECT_NAME}")
 set(namespace "${PROJECT_NAME}::")
-
-include(CMakePackageConfigHelpers)
 
 write_basic_package_version_file(
         "${version_config}" COMPATIBILITY SameMajorVersion

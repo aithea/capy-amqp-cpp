@@ -77,6 +77,7 @@ namespace capy::amqp {
          * Copy Address object
          */
         Address(const Address &);
+        Address(Address &&) = default;
 
         /***
          * Copy operation
@@ -108,6 +109,10 @@ namespace capy::amqp {
          */
         const std::string& get_vhost() const;
 
+        /**
+         * Get current login
+         * @return
+         */
         const Login& get_login() const;
 
         /***
