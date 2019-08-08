@@ -3,10 +3,8 @@
 //
 
 #include "capy/amqp_broker.h"
-#include "amqp.h"
-#include "amqp_tcp_socket.h"
-
 #include "capy/dispatchq.h"
+
 #include <assert.h>
 #include <atomic>
 #include <thread>

@@ -6,9 +6,6 @@
 
 #include "handler.h"
 #include "capy/amqp_broker.h"
-
-#include "amqp.h"
-#include "amqp_tcp_socket.h"
 #include "pool.h"
 
 #include "capy/amqp_deferred.h"

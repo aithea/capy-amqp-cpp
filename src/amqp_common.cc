@@ -48,29 +48,11 @@ namespace capy::amqp {
     using namespace std;
 
     Replay::~Replay() {
-//      if (complete_handler_){
-//        complete_handler_.value()(this);
-//      }
     }
 
     Replay::Replay():
     message()
-    //commit_handler_(nullptr)
     {}
-//
-//    void Replay::set_complete(const capy::amqp::Replay::Handler &complete_handler) {
-//      complete_handler_ = complete_handler;
-//    }
-//
-//    void Replay::set_commit(const std::optional<capy::amqp::Replay::Handler> &commit_handler) {
-//      commit_handler_ = commit_handler;
-//    }
-//
-//    void Replay::commit() {
-//      if (commit_handler_) {
-//        commit_handler_.value()(this);
-//      }
-//    }
 
     const char *ErrorCategory::name() const noexcept {
       return "capy.amqp";
