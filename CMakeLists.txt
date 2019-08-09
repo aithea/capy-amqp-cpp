@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.12)
 # Project
 #
 set(PROJECT_LIB capy_amqp_cpp)
-project(${PROJECT_LIB} VERSION 0.5.2)
+project(${PROJECT_LIB} VERSION 0.5.4)
 
 #
 # Options
