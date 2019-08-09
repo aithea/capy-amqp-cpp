@@ -121,7 +121,7 @@ namespace capy {
 
     public:
 
-        Cache() {
+        Cache(bool enable_curator=false):enable_curator_(enable_curator) {
 
           // We are making a new Cache.  Init our shards.
           this->shards.reserve(FASTCACHE_SHARDSIZE);
@@ -132,17 +132,19 @@ namespace capy {
           }
 
           // Start up the curator thread
-          this->curator_run = shared_ptr<std::atomic_int>(new std::atomic_int(1));
-          this->curator = shared_ptr<std::thread>(new std::thread(&Cache::curate, this));
+          if (enable_curator_) {
+            this->curator_run = shared_ptr<std::atomic_int>(new std::atomic_int(1));
+            this->curator = shared_ptr<std::thread>(new std::thread(&Cache::curate, this));
+          }
         };
 
         ~Cache() {
-
-          // Retire the curator
-          --(*this->curator_run);
-          //this->curator->;
-          this->curator->join();
-
+          if (enable_curator_) {
+            // Retire the curator
+            --(*this->curator_run);
+            //this->curator->;
+            this->curator->join();
+          }
         };
 
         /**
@@ -329,6 +331,7 @@ namespace capy {
         };
 
     protected:
+        bool enable_curator_;
 
         /**
          * We are the curator
@@ -336,6 +339,8 @@ namespace capy {
          * Purge expired keys, etc
          */
         void curate() {
+
+          if (!enable_curator_) return;
 
           while (*this->curator_run) {
 
