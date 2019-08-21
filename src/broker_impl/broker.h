@@ -55,7 +55,7 @@ namespace capy::amqp {
         }
     };
 
-    inline static AMQP::Login to_login(const capy::amqp::Login& login) {
+    inline static AMQP::Login to_login(const capy::Login& login) {
       return AMQP::Login(login.get_username(), login.get_password());
     }
 

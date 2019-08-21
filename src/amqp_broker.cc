@@ -112,12 +112,6 @@ namespace capy::amqp {
       static BrokerErrorCategory instance;
       return instance;
     }
-
-    std::error_condition make_error_condition(capy::amqp::BrokerError e) {
-      return std::error_condition(
-              static_cast<int>(e),
-              capy::amqp::broker_error_category());
-    }
 }
 
 

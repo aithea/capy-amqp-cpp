@@ -8,60 +8,25 @@
 #include <string>
 #include <functional>
 
-
 #include "capy/amqp_common.h"
 
 namespace capy::amqp {
 
-    /***
-     * AMQP Address errors
-     */
-    enum class AddressError : PUBLIC_ENUM(CommonError) {
-        /***
-         * Parsing input address string error
-         */
-        PARSE = EXTEND_ENUM(CommonError,LAST),
-        /***
-         * Input address string is empty
-         */
-        EMPTY,
-        LAST
-    };
-
-    class AddressImpl;
-
-    /***
-     * AMQP Login
-     */
-    class Login {
+    class Address: public CommonAddress {
     public:
-        /***
-         * Get user name
-         * @return username string
-         */
-        virtual const std::string& get_username() const = 0;
 
-        /***
-         * Get user password
-         * @return password plain string
-         */
-        virtual const std::string& get_password() const = 0;
-    };
-
-    /**
-     * Address class
-     */
-    class Address {
-
-    public:
+        using capy::CommonAddress::CommonAddress;
 
         /**
          * Address protocol is supported by the current version
          */
-        enum class Protocol:int {
-            amqp  = 0,
-            amqps = 1,
-            unknown
+        struct Protocol: url::Protocol {
+            enum Type:url::Protocol::Type {
+                amqp  = 10,
+                amqps = 11,
+                unknown
+            };
+            Type type;
         };
 
     public:
@@ -71,75 +36,27 @@ namespace capy::amqp {
          * @param address string
          * @return expected result or capy:Error
          */
+
         static capy::Result<Address> From(const std::string &address);
 
         /**
-         * Copy Address object
-         */
-        Address(const Address &);
-        Address(Address &&) = default;
-
-        /***
-         * Copy operation
-         * @return new Address object
-         */
-        Address& operator=(const Address&);
-
-        /**
-         * Get url protocol
-         * @return - url protocol
-         */
-        const Protocol get_protocol() const;
-
-        /**
-         * Get host
-         * @return - host string
-         */
-        const std::string& get_hostname() const;
-
-        /**
-         * Get port
-         * @return port number
-         */
-        const uint16_t get_port() const;
+        * Get url protocol
+        * @return - url protocol
+        */
+        const Protocol& get_protocol() const { return protocol_; };
 
         /**
          * Get virtual host
-         * @return port number
+         * @return port virtual host string
          */
-        const std::string& get_vhost() const;
+        const std::string& get_vhost() const { return vhost_; };
 
-        /**
-         * Get current login
-         * @return
-         */
-        const Login& get_login() const;
-
-        /***
-         * Destroy the object
-         */
-        ~Address();
-
-    protected:
-        std::shared_ptr<AddressImpl> imp_;
-        Address(const std::shared_ptr<AddressImpl>& impl);
-        Address();
+    private:
+        Address(const url::Parts& address);
+        Protocol protocol_;
+        std::string vhost_;
     };
 
-    class AddressErrorCategory: public ErrorCategory
-    {
-    public:
-        virtual std::string message(int ev) const override ;
-    };
-
-    const std::error_category& address_error_category();
-    std::error_condition make_error_condition(capy::amqp::AddressError e);
-
-}
-
-namespace std {
-
-    template <>
-    struct is_error_condition_enum<capy::amqp::AddressError>
-            : public true_type {};
+    inline bool operator==(const capy::amqp::Address::Protocol& lhs, const capy::amqp::Address::Protocol::Type rhs) { return lhs.type == rhs;}
+    inline bool operator==(const capy::amqp::Address::Protocol::Type lhs, const capy::amqp::Address::Protocol & rhs) { return lhs == rhs.type;}
 }

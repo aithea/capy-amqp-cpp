@@ -17,7 +17,6 @@
 #include "capy/dispatchq.h"
 #include "capy/amqp_common.h"
 #include "capy/amqp_address.h"
-#include "capy/amqp_expected.h"
 #include "capy/amqp_deferred.h"
 
 namespace capy::amqp {
@@ -25,28 +24,32 @@ namespace capy::amqp {
     /***
      * AMQP Broker errors
      */
-    enum class BrokerError : PUBLIC_ENUM(CommonError) {
+    class BrokerError : public CommonError {
 
-        /***
-         * Connection error
-         */
-        CONNECTION = EXTEND_ENUM(CommonError, LAST),
-        CONNECTION_CLOSED,
-        CONNECTION_LOST,
-        MEMORY,
-        LOGIN,
-        CHANNEL_READY,
-        CHANNEL_MESSAGE,
-        PUBLISH,
-        EXCHANGE_DECLARATION,
-        QUEUE_DECLARATION,
-        QUEUE_BINDING,
-        QUEUE_CONSUMING,
-        LISTENER_CONFLICT,
-        EMPTY_REPLAY,
-        DATA_RESPONSE,
+    public:
+        enum Enum: Error::Type {
+            /***
+             * Connection error
+             */
+                    CONNECTION = CommonError::LAST, //EXTEND_ENUM(CommonError, LAST),
 
-        LAST
+            CONNECTION_CLOSED,
+            CONNECTION_LOST,
+            MEMORY,
+            LOGIN,
+            CHANNEL_READY,
+            CHANNEL_MESSAGE,
+            PUBLISH,
+            EXCHANGE_DECLARATION,
+            QUEUE_DECLARATION,
+            QUEUE_BINDING,
+            QUEUE_CONSUMING,
+            LISTENER_CONFLICT,
+            EMPTY_REPLAY,
+            DATA_RESPONSE,
+
+            LAST
+        };
     };
 
     class BrokerTaskQueue:public capy::dispatchq::Queue{
@@ -171,18 +174,11 @@ namespace capy::amqp {
      */
     const std::error_category &broker_error_category();
 
-    /***
-     * Broker rpc errors logic
-     * @param error broker error state
-     * @return error condition
-     */
-    std::error_condition make_error_condition(capy::amqp::BrokerError error);
-
 }
 
 namespace std {
 
     template <>
-    struct is_error_condition_enum<capy::amqp::BrokerError>
+    struct is_error_condition_enum<capy::amqp::BrokerError::Enum >
             : public true_type {};
 }

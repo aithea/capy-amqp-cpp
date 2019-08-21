@@ -117,16 +117,21 @@ endif ()
 #
 pkg_check_modules(amqpcpp amqpcpp)
 if (amqpcpp_FOUND)
+
     message(STATUS "amqpcpp: ${amqpcpp_LIBRARIES}, ${amqpcpp_LIBRARY_DIRS} ${amqpcpp_INCLUDE_DIRS}")
+
     include_directories(
             ${amqpcpp_INCLUDE_DIRS}
     )
+
     link_directories(
             ${amqpcpp_LIBRARY_DIRS}
     )
+
     set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};${amqpcpp_LIBRARIES})
 
 else()
+
     ExternalProject_Add(AMQP-CPP
             GIT_REPOSITORY https://github.com/dnevera/AMQP-CPP
             CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
@@ -136,8 +141,10 @@ else()
             -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
             -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
             )
+
     set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};amqpcpp)
     set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};amqpcpp)
+
 endif()
 
 #
@@ -146,15 +153,21 @@ endif()
 pkg_check_modules(capy_dispatchq capy-dispatchq)
 
 if (capy_dispatchq_FOUND)
+
     message(STATUS "capy-dispatchq: ${capy_dispatchq_LIBRARIES}, ${capy_dispatchq_LIBRARY_DIRS} ${capy_dispatchq_INCLUDE_DIRS}")
+
     include_directories(
             ${capy_dispatchq_INCLUDE_DIRS}
     )
+
     link_directories(
             ${capy_dispatchq_LIBRARY_DIRS}
     )
+
     set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};${capy_dispatchq_LIBRARIES})
+
 else()
+
     ExternalProject_Add(capy-dispatchq
             GIT_REPOSITORY https://github.com/aithea/capy-dispatchq
             CMAKE_ARGS
@@ -162,9 +175,40 @@ else()
             -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
             -DBUILD_TESTING=OFF
             )
+
     set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};capy-dispatchq)
     set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};capy_dispatchq)
 
+endif()
+
+pkg_check_modules(capy_dispatchq capy-common-cpp)
+
+if (capy_common_cpp_FOUND)
+
+    message(STATUS "capy-common-cpp: ${capy_common_cpp_LIBRARIES}, ${capy_common_cpp_LIBRARY_DIRS} ${capy_common_cpp_INCLUDE_DIRS}")
+
+    include_directories(
+            ${capy_common_cpp_INCLUDE_DIRS}
+    )
+
+    link_directories(
+            ${capy_common_cpp_LIBRARY_DIRS}
+    )
+
+    set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};${capy_common_cpp_LIBRARIES})
+
+else()
+
+    ExternalProject_Add(capy-common-cpp
+            GIT_REPOSITORY https://github.com/aithea/capy-common-cpp
+            CMAKE_ARGS
+            -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+            -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+            -DBUILD_TESTING=OFF
+            )
+
+    set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};capy-common-cpp)
+    set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES}; ${EXTERNAL_INSTALL_LOCATION}/lib/libcapy_common_cpp.a)
 
 endif()
 
