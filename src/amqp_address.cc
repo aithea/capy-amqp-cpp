@@ -42,6 +42,6 @@ namespace capy::amqp {
       a.vhost_ = std::get<4>(*parts);;
 
       return a;
-    };
+    }
 
 }
