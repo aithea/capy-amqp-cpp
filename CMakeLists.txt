@@ -181,7 +181,7 @@ else()
 
 endif()
 
-pkg_check_modules(capy_dispatchq capy-common-cpp)
+pkg_check_modules(capy_common_cpp capy-common-cpp)
 
 if (capy_common_cpp_FOUND)
 
