@@ -122,6 +122,9 @@ namespace capy::amqp {
           return Broker::Bind(address, "amq.topic", Broker::heartbeat_timeout, [](const Error& error){(void)error;});
         }
 
+        Broker(const Broker&) = default;
+        //Broker(Broker&&) = default;
+
         /***
          * Publish message with routing key and exit
          * @param message object message
@@ -148,7 +151,6 @@ namespace capy::amqp {
          * @param on_data messaging handling
          */
         DeferredListen& listen(const std::string& queue, const std::vector<std::string>& keys);
-
 
         void run(const Launch launch = Launch::async);
 

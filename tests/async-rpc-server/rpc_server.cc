@@ -21,22 +21,24 @@ void run_service(const capy::amqp::Address& address) {
 
     std::cout << " ... error_state: " << error_state << std::endl;
 
-    capy::Result<capy::amqp::Broker> broker = capy::amqp::Broker::Bind(address, [](const capy::Error& error){
+    capy::Result<capy::amqp::Broker> _broker = capy::amqp::Broker::Bind(address, [](const capy::Error& error){
         std::cerr << "amqp broker error: " << error.value() << " / " << error.message()
                   << std::endl;
     });
 
-    EXPECT_TRUE(broker);
+    EXPECT_TRUE(_broker);
 
-    if (!broker) {
-      std::cerr << "amqp broker error: " << broker.error().value() << " / " << broker.error().message()
+    if (!_broker) {
+      std::cerr << "amqp broker error: " << _broker.error().value() << " / " << _broker.error().message()
                 << std::endl;
       return;
     }
 
+    capy::amqp::Broker broker = *_broker;
+
     std::promise<int> error_state_connection;
 
-    broker->listen("capy-test", {"echo.ping"})
+    broker.listen("capy-test", {"echo.ping"})
 
             .on_data([&counter](const capy::amqp::Request &request, capy::amqp::Replay* replay) {
 
@@ -115,7 +117,7 @@ void run_service(const capy::amqp::Address& address) {
 
             });
 
-    broker->run(capy::amqp::Broker::Launch::sync);
+    broker.run(capy::amqp::Broker::Launch::sync);
 
     error_state = error_state_connection.get_future().get();
 
@@ -127,7 +129,7 @@ void run_service(const capy::amqp::Address& address) {
 
 TEST(Exchange, AsyncListenTest) {
 
-  srand(time(0));
+  srand(time(nullptr));
 
   auto login = capy::get_dotenv("CAPY_AMQP_ADDRESS");
 
