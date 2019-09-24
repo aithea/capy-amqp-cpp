@@ -22,7 +22,7 @@ target_link_libraries(
         ${CAPY_WORKSPACE_LIBRARIES}
 )
 
-if (${CAPY_WORKSPACE_DEPENDECIES})
+if (CAPY_WORKSPACE_DEPENDECIES)
     message(STATUS "${TEST} DEPENDECIES: ${CAPY_WORKSPACE_DEPENDECIES}")
     add_dependencies(
             ${TEST}
