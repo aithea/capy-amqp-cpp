@@ -270,3 +270,5 @@ install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/capy-amqp-cpp.pc
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
         )
+
+message(STATUS "CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS})

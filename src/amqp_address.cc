@@ -6,7 +6,7 @@
 
 namespace capy::amqp {
 
-    Address::Address(const url::Parts& address):CommonAddress(address){};
+    Address::Address(const url::Parts& address):CommonAddress(address){}
 
     capy::Result<Address> Address::From(const std::string &address) {
 
