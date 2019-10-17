@@ -132,7 +132,7 @@ if (amqpcpp_FOUND)
 
 else()
 
-    ExternalProject_Add(AMQP-CPP
+    ExternalProject_Add(AMQP_CPP
             GIT_REPOSITORY https://github.com/dnevera/AMQP-CPP
             CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
             -DAMQP-CPP_LINUX_TCP=ON
@@ -142,7 +142,7 @@ else()
             -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
             )
 
-    set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};amqpcpp)
+    set(CAPY_WORKSPACE_DEPENDECIES ${CAPY_WORKSPACE_DEPENDECIES};AMQP_CPP)
     set(CAPY_WORKSPACE_LIBRARIES ${CAPY_WORKSPACE_LIBRARIES};amqpcpp)
 
 endif()
@@ -271,4 +271,4 @@ install(FILES
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
         )
 
-message(STATUS "CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS})
+        message(STATUS "CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS})
